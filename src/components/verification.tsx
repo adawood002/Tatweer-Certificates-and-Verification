@@ -101,14 +101,13 @@ export default function Verification({ workId }: VerificationProps) {
   const isExpired = searchResult && typeof searchResult !== 'string' && searchResult.expiryDate < new Date();
 
   return (
-    <Card className="w-full shadow-lg border-primary/20">
+    <Card className="w-full shadow-lg">
       <CardHeader>
-        <CardTitle className="font-headline text-2xl text-primary">
+        <CardTitle className="font-headline text-2xl">
           Verify a Certificate
         </CardTitle>
         <CardDescription>
-          Enter the Work ID from a certificate to verify its authenticity and
-          status.
+          Enter the Work ID from a certificate to verify its authenticity and status.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -119,11 +118,11 @@ export default function Verification({ workId }: VerificationProps) {
               placeholder="Enter Work ID (e.g., W-67890)"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="flex-grow"
+              className="flex-grow text-base h-11"
               disabled={!!workId}
             />
             {!workId && (
-              <Button type="submit" disabled={isLoading}>
+              <Button type="submit" disabled={isLoading || !searchQuery} size="lg">
                 {isLoading ? (
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 ) : (
@@ -141,10 +140,11 @@ export default function Verification({ workId }: VerificationProps) {
               initial={{ height: 0, opacity: 0 }}
               animate={{ height: 'auto', opacity: 1 }}
               exit={{ height: 0, opacity: 0 }}
-              className="mt-6 flex flex-col items-center justify-center text-muted-foreground"
+              className="mt-8 flex flex-col items-center justify-center text-muted-foreground"
             >
               <Loader2 className="w-10 h-10 animate-spin text-primary mb-4" />
               <p className="font-semibold">Verifying Certificate...</p>
+              <p className="text-sm">Please wait a moment.</p>
             </motion.div>
           )}
         </AnimatePresence>
@@ -155,11 +155,11 @@ export default function Verification({ workId }: VerificationProps) {
             className="mt-6"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 0.2 }}
+            transition={{ duration: 0.5 }}
           >
-            <Separator className="my-4" />
+            <Separator className="my-6" />
             {searchResult === "not_found" ? (
-              <Alert variant="destructive">
+              <Alert variant="destructive" className="py-4">
                 <AlertTriangle className="h-4 w-4" />
                 <AlertTitle>Not Found</AlertTitle>
                 <AlertDescription>
@@ -169,8 +169,20 @@ export default function Verification({ workId }: VerificationProps) {
               </Alert>
             ) : (
               <div>
+                <Alert className="mb-6" variant={isExpired ? "destructive" : "default"}>
+                  {isExpired ? <ShieldX className="h-5 w-5" /> : <ShieldCheck className="h-5 w-5" />}
+                  <AlertTitle className="font-bold text-lg">
+                    {isExpired ? "Certificate Expired" : "Certificate Valid"}
+                  </AlertTitle>
+                  <AlertDescription>
+                    {isExpired
+                      ? `This certificate expired on ${format(searchResult.expiryDate, "PPP")}.`
+                      : `This certificate is valid and will expire on ${format(searchResult.expiryDate, "PPP")}.`}
+                  </AlertDescription>
+                </Alert>
+
                 <motion.div
-                  className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm mb-6"
+                  className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm"
                   variants={{
                     hidden: { opacity: 0 },
                     show: {
@@ -188,23 +200,11 @@ export default function Verification({ workId }: VerificationProps) {
                   <InfoItem icon={Briefcase} label="Company ID" value={searchResult.companyId} />
                   <InfoItem icon={CalendarClock} label="Expiry Date" value={format(searchResult.expiryDate, "PPP")} />
                 </motion.div>
-
-                <Alert className="mt-6" variant={isExpired ? "destructive" : "default"}>
-                  {isExpired ? <ShieldX className="h-5 w-5" /> : <ShieldCheck className="h-5 w-5" />}
-                  <AlertTitle className="font-bold text-lg">
-                    {isExpired ? "Certificate Expired" : "Certificate Valid"}
-                  </AlertTitle>
-                  <AlertDescription>
-                    {isExpired
-                      ? `This certificate expired on ${format(searchResult.expiryDate, "PPP")}.`
-                      : `This certificate is valid and will expire on ${format(searchResult.expiryDate, "PPP")}.`}
-                  </AlertDescription>
-                </Alert>
                 
                 {!isExpired && (
                   <div className="mt-6">
-                    <h4 className="font-semibold mb-2 text-primary">Certificate Document:</h4>
-                     <div className="w-full h-[40rem] border-2 border-dashed rounded-lg flex items-center justify-center bg-muted/30">
+                    <h4 className="font-semibold mb-2 text-foreground">Certificate Document:</h4>
+                     <div className="w-full h-[40rem] border rounded-lg flex items-center justify-center bg-muted/30">
                         <p className="text-muted-foreground">Certificate preview would be displayed here.</p>
                     </div>
                   </div>
@@ -220,20 +220,21 @@ export default function Verification({ workId }: VerificationProps) {
 }
 
 const itemVariants = {
-  hidden: { y: 20, opacity: 0 },
+  hidden: { y: 10, opacity: 0 },
   show: { y: 0, opacity: 1 },
 };
 
 function InfoItem({ icon: Icon, label, value }: { icon: React.ElementType, label: string, value: string }) {
   return (
     <motion.div 
-      className="flex items-start gap-3 p-3 bg-background border rounded-lg shadow-sm"
+      className="flex items-start gap-4 p-4 bg-background border rounded-lg"
       variants={itemVariants}
+      transition={{ ease: "easeOut", duration: 0.3}}
     >
-      <Icon className="h-5 w-5 mt-1 text-primary flex-shrink-0" />
+      <Icon className="h-6 w-6 mt-1 text-primary flex-shrink-0" />
       <div>
-        <p className="font-semibold text-muted-foreground">{label}</p>
-        <p className="font-medium text-foreground">{value}</p>
+        <p className="font-medium text-muted-foreground">{label}</p>
+        <p className="font-semibold text-foreground text-base">{value}</p>
       </div>
     </motion.div>
   )

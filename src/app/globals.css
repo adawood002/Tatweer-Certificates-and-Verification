@@ -2,61 +2,35 @@
 @tailwind components;
 @tailwind utilities;
 
-@keyframes background-pan {
-  0% {
-    background-position: 0% 50%;
-  }
-  50% {
-    background-position: 100% 50%;
-  }
-  100% {
-    background-position: 0% 50%;
-  }
-}
-
-body {
-  font-family: 'PT Sans', sans-serif;
-  animation: background-pan 15s ease-in-out infinite;
-  background: linear-gradient(
-    -45deg,
-    hsl(var(--background)),
-    hsl(210 40% 92%),
-    hsl(222.2 84% 8%),
-    hsl(var(--background))
-  );
-  background-size: 400% 400%;
-}
-
-
 @layer base {
   :root {
-    --background: 210 40% 98%;
-    --foreground: 222.2 84% 4.9%;
+    --background: 220 20% 98%;
+    --foreground: 220 15% 15%;
 
-    --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
+    --card: 220 20% 100%;
+    --card-foreground: 220 15% 15%;
  
-    --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
+    --popover: 220 20% 100%;
+    --popover-foreground: 220 15% 15%;
  
-    --primary: 207 43% 50%;
+    --primary: 217 91% 60%;
     --primary-foreground: 210 40% 98%;
  
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
+    --secondary: 220 15% 96%;
+    --secondary-foreground: 220 15% 25%;
  
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
+    --muted: 220 15% 96%;
+    --muted-foreground: 220 10% 45%;
  
-    --accent: 27 77% 58%;
-    --accent-foreground: 0 0% 98%;
+    --accent: 220 15% 90%;
+    --accent-foreground: 220 15% 15%;
  
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 210 40% 98%;
 
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 207 43% 50%;
+    --border: 220 15% 90%;
+    --input: 220 15% 90%;
+    --ring: 217 91% 60%;
  
     --radius: 0.8rem;
   }
@@ -71,8 +45,8 @@ body {
     --popover: 222.2 84% 4.9%;
     --popover-foreground: 210 40% 98%;
  
-    --primary: 207 43% 70%;
-    --primary-foreground: 222.2 47.4% 11.2%;
+    --primary: 217 91% 60%;
+    --primary-foreground: 210 40% 98%;
  
     --secondary: 217.2 32.6% 17.5%;
     --secondary-foreground: 210 40% 98%;
@@ -80,15 +54,15 @@ body {
     --muted: 217.2 32.6% 17.5%;
     --muted-foreground: 215 20.2% 65.1%;
  
-    --accent: 27 77% 65%;
-    --accent-foreground: 222.2 47.4% 11.2%;
+    --accent: 217.2 32.6% 25%;
+    --accent-foreground: 210 40% 98%;
  
     --destructive: 0 62.8% 30.6%;
     --destructive-foreground: 210 40% 98%;
  
     --border: 217.2 32.6% 17.5%;
     --input: 217.2 32.6% 17.5%;
-    --ring: 207 43% 70%;
+    --ring: 217 91% 60%;
   }
 }
  
@@ -98,5 +72,6 @@ body {
   }
   body {
     @apply bg-background text-foreground;
+    font-family: 'PT Sans', sans-serif;
   }
 }

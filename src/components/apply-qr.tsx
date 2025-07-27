@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect, type FormEvent } from "react";
+import { useState, useRef, type FormEvent } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -132,18 +132,18 @@ export default function ApplyQrCode() {
       {showPreview ? (
         <motion.div
           key="preview"
-          initial={{ opacity: 0, scale: 0.95, y: 20 }}
-          animate={{ opacity: 1, scale: 1, y: 0 }}
-          exit={{ opacity: 0, scale: 0.95, y: -20 }}
-          transition={{ duration: 0.4, ease: "easeInOut" }}
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -20 }}
+          transition={{ duration: 0.3 }}
         >
-          <Card className="w-full overflow-hidden">
+          <Card className="w-full overflow-hidden shadow-lg">
             <CardHeader>
-              <CardTitle className="font-headline text-2xl text-primary">
+              <CardTitle className="font-headline text-2xl">
                 Position Your QR Code
               </CardTitle>
               <CardDescription>
-                Drag the QR code to your desired location on the certificate.
+                Drag the QR code to your desired location on the certificate, then save.
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -163,9 +163,10 @@ export default function ApplyQrCode() {
                   drag
                   dragConstraints={previewAreaRef}
                   dragMomentum={false}
-                  onDragEnd={(event, info) => {
+                  onDragEnd={() => {
                     const qrEl = qrRef.current;
-                    if(qrEl) {
+                    const containerEl = previewAreaRef.current;
+                    if(qrEl && containerEl) {
                       setQrPosition({
                         x: qrEl.offsetLeft,
                         y: qrEl.offsetTop,
@@ -173,10 +174,10 @@ export default function ApplyQrCode() {
                     }
                   }}
                   className="absolute cursor-move select-none p-2 bg-white rounded-md shadow-2xl"
-                  style={{ top: qrPosition.y, left: qrPosition.x }}
+                  style={{ top: '50px', left: '50px' }}
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95, cursor: 'grabbing' }}
-                  initial={{ top: '50px', left: '50px', scale: 0.5, opacity: 0 }}
+                  initial={{ scale: 0.5, opacity: 0 }}
                   animate={{ scale: 1, opacity: 1}}
                   transition={{ type: 'spring', stiffness: 300, damping: 20}}
                 >
@@ -200,7 +201,7 @@ export default function ApplyQrCode() {
                 </motion.div>
               </div>
             </CardContent>
-            <CardFooter className="flex justify-end gap-2">
+            <CardFooter className="flex justify-end gap-2 bg-muted/30 py-4">
               <Button variant="outline" onClick={() => setShowPreview(false)}>
                 Back to Edit
               </Button>
@@ -214,14 +215,14 @@ export default function ApplyQrCode() {
       ) : (
         <motion.div
           key="form"
-          initial={{ opacity: 0, scale: 0.95, y: 20 }}
-          animate={{ opacity: 1, scale: 1, y: 0 }}
-          exit={{ opacity: 0, scale: 0.95, y: -20 }}
-          transition={{ duration: 0.4, ease: "easeInOut" }}
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -20 }}
+          transition={{ duration: 0.3 }}
         >
-          <Card className="w-full">
+          <Card className="w-full shadow-lg">
             <CardHeader>
-              <CardTitle className="font-headline text-2xl text-primary">
+              <CardTitle className="font-headline text-2xl">
                 Create Your Secured Certificate
               </CardTitle>
               <CardDescription>
@@ -251,19 +252,17 @@ export default function ApplyQrCode() {
                       <label
                         htmlFor="certificate-upload"
                         className={cn(
-                          "flex flex-col items-center justify-center w-full h-40 border-2 border-dashed rounded-lg cursor-pointer bg-background hover:bg-muted/50 transition-all duration-300",
-                          fileError ? "border-destructive hover:bg-destructive/10" : "border-primary/30",
-                          certificateFile && "border-green-500 bg-green-500/10"
+                          "flex flex-col items-center justify-center w-full h-40 border-2 border-dashed rounded-lg cursor-pointer bg-background hover:bg-accent transition-colors duration-200",
+                          fileError ? "border-destructive hover:bg-destructive/10" : "border-border",
+                          certificateFile && "border-green-500 bg-green-50"
                         )}
                       >
-                         <motion.div 
-                          className="flex flex-col items-center justify-center pt-5 pb-6"
-                          initial={{y: 10, opacity: 0}}
-                          animate={{y: 0, opacity: 1}}
+                         <div 
+                          className="flex flex-col items-center justify-center pt-5 pb-6 text-center"
                          >
                           {certificateFile ? (
                             <>
-                              <FileCheck2 className="w-10 h-10 mb-3 text-green-500" />
+                              <FileCheck2 className="w-10 h-10 mb-3 text-green-600" />
                               <p className="mb-2 text-sm text-foreground">
                                 <span className="font-semibold">
                                   {certificateFile.name}
@@ -277,14 +276,14 @@ export default function ApplyQrCode() {
                             <>
                               <UploadCloud className="w-10 h-10 mb-3 text-muted-foreground" />
                               <p className="mb-2 text-sm text-muted-foreground">
-                                <span className="font-semibold">Click to upload</span> or drag and drop
+                                <span className="font-semibold text-primary">Click to upload</span> or drag and drop
                               </p>
                               <p className="text-xs text-muted-foreground">
                                 PDF only (MAX. 5MB)
                               </p>
                             </>
                           )}
-                        </motion.div>
+                        </div>
                       </label>
                     </div>
                     {fileError && (
@@ -378,11 +377,11 @@ export default function ApplyQrCode() {
                   </div>
                 </CardContent>
                 <CardFooter>
-                  <Button type="submit" className="w-full text-lg h-12" disabled={isApplying}>
+                  <Button type="submit" className="w-full text-lg h-12 group" disabled={isApplying}>
                     {isApplying ? (
                       <Loader2 className="mr-2 h-5 w-5 animate-spin" />
                     ) : 
-                    ( <ArrowRight className="mr-2 h-5 w-5" />)
+                    ( <ArrowRight className="mr-2 h-5 w-5 transition-transform group-hover:translate-x-1" />)
                     }
                     Apply QR on Certificate
                   </Button>
