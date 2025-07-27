@@ -13,7 +13,8 @@ import {
   FileCheck2,
   AlertCircle,
   Loader2,
-  ArrowRight
+  ArrowRight,
+  ZoomIn,
 } from "lucide-react";
 import Image from "next/image";
 import { motion, AnimatePresence } from "framer-motion";
@@ -46,6 +47,8 @@ import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { generateQrCode } from "@/ai/flows/generate-qr-code";
+import { Slider } from "@/components/ui/slider";
+import { Label } from "@/components/ui/label";
 
 const formSchema = z.object({
   companyName: z.string().min(2, {
@@ -66,6 +69,7 @@ export default function ApplyQrCode() {
   const [showPreview, setShowPreview] = useState(false);
   const [isApplying, setIsApplying] = useState(false);
   const [qrCodeUrl, setQrCodeUrl] = useState<string | null>(null);
+  const [qrSize, setQrSize] = useState(120);
 
   const [qrPosition, setQrPosition] = useState({ x: 50, y: 50 });
   const qrRef = useRef<HTMLDivElement>(null);
@@ -119,7 +123,7 @@ export default function ApplyQrCode() {
   };
 
   const handleSaveAndDownload = () => {
-    console.log("Saving certificate with QR code at:", qrPosition);
+    console.log("Saving certificate with QR code at:", qrPosition, "and size:", qrSize);
     toast({
       title: "Download Initiated",
       description: "Your secured certificate is being prepared for download.",
@@ -143,10 +147,10 @@ export default function ApplyQrCode() {
                 Position Your QR Code
               </CardTitle>
               <CardDescription>
-                Drag the QR code to your desired location on the certificate, then save.
+                Drag the QR code to your desired location, resize it, and then save.
               </CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent className="space-y-4">
               <div
                 ref={previewAreaRef}
                 className="relative w-full h-[50rem] border-2 border-dashed rounded-lg bg-muted/30 overflow-hidden group"
@@ -163,10 +167,9 @@ export default function ApplyQrCode() {
                   drag
                   dragConstraints={previewAreaRef}
                   dragMomentum={false}
-                  onDragEnd={() => {
+                  onDragEnd={(_, info) => {
                     const qrEl = qrRef.current;
-                    const containerEl = previewAreaRef.current;
-                    if(qrEl && containerEl) {
+                    if(qrEl) {
                       setQrPosition({
                         x: qrEl.offsetLeft,
                         y: qrEl.offsetTop,
@@ -185,12 +188,12 @@ export default function ApplyQrCode() {
                     <Image
                       src={qrCodeUrl}
                       alt="QR Code"
-                      width={120}
-                      height={120}
+                      width={qrSize}
+                      height={qrSize}
                       className="pointer-events-none"
                     />
                   ) : (
-                    <div className="w-[120px] h-[120px] flex items-center justify-center">
+                    <div className="flex items-center justify-center" style={{width: qrSize, height: qrSize}}>
                       <Loader2 className="animate-spin"/>
                     </div>
                   )}
@@ -200,8 +203,27 @@ export default function ApplyQrCode() {
                   </div>
                 </motion.div>
               </div>
+              <div className="p-4 border rounded-lg bg-background">
+                <Label htmlFor="qr-size" className="flex items-center gap-2 mb-3 text-sm font-semibold">
+                  <ZoomIn className="w-5 h-5" />
+                  Adjust QR Code Size
+                </Label>
+                <div className="flex items-center gap-4">
+                  <Slider
+                    id="qr-size"
+                    min={50}
+                    max={250}
+                    step={10}
+                    value={[qrSize]}
+                    onValueChange={(value) => setQrSize(value[0])}
+                  />
+                  <span className="text-sm font-medium tabular-nums w-12 text-center border rounded-md py-1">
+                    {qrSize}px
+                  </span>
+                </div>
+              </div>
             </CardContent>
-            <CardFooter className="flex justify-end gap-2 bg-muted/30 py-4">
+            <CardFooter className="flex justify-end gap-2 bg-muted/30 py-4 px-6">
               <Button variant="outline" onClick={() => setShowPreview(false)}>
                 Back to Edit
               </Button>
@@ -252,7 +274,7 @@ export default function ApplyQrCode() {
                       <label
                         htmlFor="certificate-upload"
                         className={cn(
-                          "flex flex-col items-center justify-center w-full h-40 border-2 border-dashed rounded-lg cursor-pointer bg-background hover:bg-accent transition-colors duration-200",
+                          "flex flex-col items-center justify-center w-full h-40 border-2 border-dashed rounded-lg cursor-pointer bg-background hover:bg-accent/10 transition-colors duration-200",
                           fileError ? "border-destructive hover:bg-destructive/10" : "border-border",
                           certificateFile && "border-green-500 bg-green-50"
                         )}
@@ -376,7 +398,7 @@ export default function ApplyQrCode() {
                     />
                   </div>
                 </CardContent>
-                <CardFooter>
+                <CardFooter className="px-6 pb-6">
                   <Button type="submit" className="w-full text-lg h-12 group" disabled={isApplying}>
                     {isApplying ? (
                       <Loader2 className="mr-2 h-5 w-5 animate-spin" />
