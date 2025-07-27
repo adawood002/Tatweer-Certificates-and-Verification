@@ -47,6 +47,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { generateQrCode } from "@/ai/flows/generate-qr-code";
+import { applyQrToPdf } from "@/ai/flows/apply-qr-to-pdf";
 import { Slider } from "@/components/ui/slider";
 import { Label } from "@/components/ui/label";
 
@@ -67,7 +68,7 @@ export default function ApplyQrCode() {
   const [fileError, setFileError] = useState<string | null>(null);
   const [pdfPreviewUrl, setPdfPreviewUrl] = useState<string | null>(null);
   const [showPreview, setShowPreview] = useState(false);
-  const [isApplying, setIsApplying] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
   const [qrCodeUrl, setQrCodeUrl] = useState<string | null>(null);
   const [qrSize, setQrSize] = useState(120);
 
@@ -104,7 +105,7 @@ export default function ApplyQrCode() {
       setFileError("Please upload a certificate PDF.");
       return;
     }
-    setIsApplying(true);
+    setIsProcessing(true);
     try {
       const verificationUrl = `${window.location.origin}/verify/${encodeURIComponent(values.workId)}`;
       const qrCodeDataUrl = await generateQrCode(verificationUrl);
@@ -118,17 +119,74 @@ export default function ApplyQrCode() {
         variant: "destructive",
       });
     } finally {
-      setIsApplying(false);
+      setIsProcessing(false);
     }
   };
 
-  const handleSaveAndDownload = () => {
-    console.log("Saving certificate with QR code at:", qrPosition, "and size:", qrSize);
+  const handleSaveAndDownload = async () => {
+    if (!certificateFile || !qrCodeUrl) {
+        toast({
+            title: "Error",
+            description: "Missing certificate or QR code.",
+            variant: "destructive",
+        });
+        return;
+    }
+
+    setIsProcessing(true);
     toast({
-      title: "Download Initiated",
-      description: "Your secured certificate is being prepared for download.",
-      variant: "default",
+        title: "Processing Certificate",
+        description: "Applying QR code and preparing your download...",
     });
+
+    try {
+        const fileReader = new FileReader();
+        fileReader.readAsDataURL(certificateFile);
+        fileReader.onload = async () => {
+            const pdfBase64 = (fileReader.result as string).split(',')[1];
+
+            if (!pdfBase64) {
+                throw new Error("Failed to read the PDF file.");
+            }
+
+            const newPdfBase64 = await applyQrToPdf({
+                pdfBase64,
+                qrCodeDataUrl: qrCodeUrl,
+                x: qrPosition.x,
+                y: qrPosition.y,
+                size: qrSize,
+            });
+
+            // Trigger download
+            const link = document.createElement("a");
+            link.href = `data:application/pdf;base64,${newPdfBase64}`;
+            link.download = `secured-${certificateFile.name}`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            
+            toast({
+                title: "Download Successful!",
+                description: "Your secured certificate has been downloaded.",
+                variant: "default",
+            });
+        };
+
+        fileReader.onerror = (error) => {
+            console.error("FileReader error:", error);
+            throw new Error("Failed to read the uploaded file.");
+        };
+
+    } catch (error) {
+        console.error("Failed to save and download certificate:", error);
+        toast({
+            title: "Download Failed",
+            description: "Could not process your certificate. Please try again.",
+            variant: "destructive",
+        });
+    } finally {
+        setIsProcessing(false);
+    }
   };
 
   return (
@@ -167,9 +225,10 @@ export default function ApplyQrCode() {
                   drag
                   dragConstraints={previewAreaRef}
                   dragMomentum={false}
-                  onDragEnd={(_, info) => {
+                  onDragEnd={() => {
                     const qrEl = qrRef.current;
-                    if(qrEl) {
+                    const previewEl = previewAreaRef.current;
+                    if(qrEl && previewEl) {
                       setQrPosition({
                         x: qrEl.offsetLeft,
                         y: qrEl.offsetTop,
@@ -177,7 +236,7 @@ export default function ApplyQrCode() {
                     }
                   }}
                   className="absolute cursor-move select-none p-2 bg-white rounded-md shadow-2xl"
-                  style={{ top: '50px', left: '50px' }}
+                  style={{ top: `${qrPosition.y}px`, left: `${qrPosition.x}px` }}
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95, cursor: 'grabbing' }}
                   initial={{ scale: 0.5, opacity: 0 }}
@@ -224,11 +283,15 @@ export default function ApplyQrCode() {
               </div>
             </CardContent>
             <CardFooter className="flex justify-end gap-2 bg-muted/30 py-4 px-6">
-              <Button variant="outline" onClick={() => setShowPreview(false)}>
+              <Button variant="outline" onClick={() => setShowPreview(false)} disabled={isProcessing}>
                 Back to Edit
               </Button>
-              <Button onClick={handleSaveAndDownload} disabled={!qrCodeUrl}>
-                <Download className="mr-2 h-4 w-4" />
+              <Button onClick={handleSaveAndDownload} disabled={!qrCodeUrl || isProcessing}>
+                 {isProcessing ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Download className="mr-2 h-4 w-4" />
+                )}
                 Save & Download
               </Button>
             </CardFooter>
@@ -399,8 +462,8 @@ export default function ApplyQrCode() {
                   </div>
                 </CardContent>
                 <CardFooter className="px-6 pb-6">
-                  <Button type="submit" className="w-full text-lg h-12 group" disabled={isApplying}>
-                    {isApplying ? (
+                  <Button type="submit" className="w-full text-lg h-12 group" disabled={isProcessing}>
+                    {isProcessing ? (
                       <Loader2 className="mr-2 h-5 w-5 animate-spin" />
                     ) : 
                     ( <ArrowRight className="mr-2 h-5 w-5 transition-transform group-hover:translate-x-1" />)
