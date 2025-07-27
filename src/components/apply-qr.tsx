@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, useRef, type FormEvent } from "react";
+import { useState, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { format } from "date-fns";
+import { PDFDocument } from "pdf-lib";
 import {
   CalendarIcon,
   UploadCloud,
@@ -48,7 +49,6 @@ import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { generateQrCode } from "@/ai/flows/generate-qr-code";
 import { applyQrToPdf } from "@/ai/flows/apply-qr-to-pdf";
-import { generatePdfPreview } from "@/ai/flows/generate-pdf-preview";
 import { Slider } from "@/components/ui/slider";
 import { Label } from "@/components/ui/label";
 
@@ -63,12 +63,17 @@ const formSchema = z.object({
 
 type FormValues = z.infer<typeof formSchema>;
 
+type PdfMetadata = {
+  width: number;
+  height: number;
+};
+
 export default function ApplyQrCode() {
   const { toast } = useToast();
   const [certificateFile, setCertificateFile] = useState<File | null>(null);
+  const [pdfMetadata, setPdfMetadata] = useState<PdfMetadata | null>(null);
+  const [certificateUrl, setCertificateUrl] = useState<string | null>(null);
   const [fileError, setFileError] = useState<string | null>(null);
-  const [pdfPreviewUrl, setPdfPreviewUrl] = useState<string | null>(null);
-  const [isGeneratingPreview, setIsGeneratingPreview] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [qrCodeUrl, setQrCodeUrl] = useState<string | null>(null);
@@ -76,7 +81,7 @@ export default function ApplyQrCode() {
 
   const [qrPosition, setQrPosition] = useState({ x: 50, y: 50 });
   const qrRef = useRef<HTMLDivElement>(null);
-  const previewAreaRef = useRef<HTMLImageElement>(null);
+  const previewAreaRef = useRef<HTMLDivElement>(null);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -91,35 +96,25 @@ export default function ApplyQrCode() {
     const file = event.target.files?.[0];
     if (file) {
       if (file.type === "application/pdf" && file.size <= 5 * 1024 * 1024) {
-        setCertificateFile(file);
-        setFileError(null);
-        setIsGeneratingPreview(true);
-        setPdfPreviewUrl(null);
-        
         try {
           const fileReader = new FileReader();
-          fileReader.readAsDataURL(file);
+          fileReader.readAsArrayBuffer(file);
           fileReader.onload = async () => {
-             const pdfBase64 = (fileReader.result as string).split(",")[1];
-             if (!pdfBase64) {
-                throw new Error("Failed to read PDF as base64.");
-             }
-             const previewDataUrl = await generatePdfPreview({ pdfBase64 });
-             setPdfPreviewUrl(previewDataUrl);
-             setIsGeneratingPreview(false);
+            const pdfDoc = await PDFDocument.load(fileReader.result as ArrayBuffer);
+            const { width, height } = pdfDoc.getPages()[0].getSize();
+            setPdfMetadata({ width, height });
+            setCertificateFile(file);
+            setCertificateUrl(URL.createObjectURL(file));
+            setFileError(null);
           };
-          fileReader.onerror = () => {
-             throw new Error("Failed to read file.");
-          }
         } catch (error) {
-           console.error("Error generating preview:", error);
-           setFileError("Could not generate a preview for this PDF.");
-           setIsGeneratingPreview(false);
+           console.error("Error processing PDF:", error);
+           setFileError("Could not process this PDF file.");
         }
-
       } else {
         setCertificateFile(null);
-        setPdfPreviewUrl(null);
+        setCertificateUrl(null);
+        setPdfMetadata(null);
         setFileError("Please upload a PDF file smaller than 5MB.");
       }
     }
@@ -149,10 +144,10 @@ export default function ApplyQrCode() {
   };
 
   const handleSaveAndDownload = async () => {
-    if (!certificateFile || !qrCodeUrl || !previewAreaRef.current) {
+    if (!certificateFile || !qrCodeUrl || !previewAreaRef.current || !pdfMetadata) {
       toast({
         title: "Error",
-        description: "Missing certificate, QR code, or preview area.",
+        description: "Missing certificate, QR code, or PDF metadata.",
         variant: "destructive",
       });
       return;
@@ -179,7 +174,10 @@ export default function ApplyQrCode() {
         const newPdfBase64 = await applyQrToPdf({
           pdfBase64,
           qrCodeDataUrl: qrCodeUrl,
-          qrPosition: { x: qrPosition.x, y: qrPosition.y },
+          qrPosition: { 
+            x: qrRef.current?.offsetLeft || 0, 
+            y: qrRef.current?.offsetTop || 0
+          },
           qrSize,
           previewDimensions: { width: previewRect.width, height: previewRect.height },
         });
@@ -195,7 +193,6 @@ export default function ApplyQrCode() {
         toast({
           title: "Download Successful!",
           description: "Your secured certificate has been downloaded.",
-          variant: "default",
         });
       };
 
@@ -236,30 +233,21 @@ export default function ApplyQrCode() {
             </CardHeader>
             <CardContent className="space-y-4">
               <div
+                ref={previewAreaRef}
                 className="relative w-full border-2 border-dashed rounded-lg bg-muted/30 overflow-hidden group"
+                style={{
+                  aspectRatio: pdfMetadata ? `${pdfMetadata.width} / ${pdfMetadata.height}` : 'auto',
+                  backgroundImage: certificateUrl ? `url(${certificateUrl})` : 'none',
+                  backgroundSize: 'contain',
+                  backgroundPosition: 'center',
+                  backgroundRepeat: 'no-repeat'
+                }}
               >
-                {pdfPreviewUrl ? (
-                   <Image
-                    ref={previewAreaRef}
-                    src={pdfPreviewUrl}
-                    alt="Certificate Preview"
-                    width={1200}
-                    height={1600}
-                    className="w-full h-auto pointer-events-none"
-                    onLoad={(e) => {
-                      // This ensures we have the correct dimensions of the rendered image
-                      const target = e.target as HTMLImageElement;
-                      if(previewAreaRef.current) {
-                        previewAreaRef.current.width = target.offsetWidth;
-                        previewAreaRef.current.height = target.offsetHeight;
-                      }
-                    }}
-                  />
-                ) : (
+                 {!certificateUrl && (
                   <div className="w-full h-[50rem] flex items-center justify-center">
                     <Loader2 className="w-8 h-8 animate-spin text-primary" />
                   </div>
-                )}
+                 )}
                 <motion.div
                   ref={qrRef}
                   drag
@@ -379,18 +367,13 @@ export default function ApplyQrCode() {
                             className={cn(
                             "flex flex-col items-center justify-center w-full h-40 border-2 border-dashed rounded-lg cursor-pointer bg-background hover:bg-accent/10 transition-colors duration-200",
                             fileError ? "border-destructive hover:bg-destructive/10" : "border-border",
-                            certificateFile && !isGeneratingPreview && "border-green-500 bg-green-50"
+                            certificateFile && "border-green-500 bg-green-50"
                             )}
                         >
                             <div 
                             className="flex flex-col items-center justify-center pt-5 pb-6 text-center"
                             >
-                            {isGeneratingPreview ? (
-                              <>
-                                <Loader2 className="w-10 h-10 mb-3 text-primary animate-spin" />
-                                <p className="text-sm text-foreground font-semibold">Generating Preview...</p>
-                              </>
-                            ) : certificateFile ? (
+                            {certificateFile ? (
                                 <>
                                 <FileCheck2 className="w-10 h-10 mb-3 text-green-600" />
                                 <p className="mb-2 text-sm text-foreground">
@@ -507,7 +490,7 @@ export default function ApplyQrCode() {
                   </div>
                 </CardContent>
                 <CardFooter className="px-6 pb-6">
-                  <Button type="submit" className="w-full text-lg h-12 group" disabled={isProcessing || isGeneratingPreview || !certificateFile}>
+                  <Button type="submit" className="w-full text-lg h-12 group" disabled={isProcessing || !certificateFile}>
                     {isProcessing ? (
                       <Loader2 className="mr-2 h-5 w-5 animate-spin" />
                     ) : 

@@ -38,7 +38,7 @@ const applyQrToPdfFlow = ai.defineFlow(
   },
   async ({ pdfBase64, qrCodeDataUrl, qrPosition, qrSize, previewDimensions }) => {
     try {
-      const pdfDoc = await PDFDocument.load(pdfBase64);
+      const pdfDoc = await PDFDocument.load(Buffer.from(pdfBase64, 'base64'));
       const qrImage = await pdfDoc.embedPng(qrCodeDataUrl);
       
       const pages = pdfDoc.getPages();
@@ -50,21 +50,20 @@ const applyQrToPdfFlow = ai.defineFlow(
       
       const { width: pagePdfWidth, height: pagePdfHeight } = firstPage.getSize();
       
-      // Calculate the scaling factor between the PDF's actual dimensions and the preview's dimensions.
-      // We assume the preview is scaled to fit the width.
-      const scale = pagePdfWidth / previewDimensions.width;
-
-      // Scale the QR code's size and position from preview pixels to PDF points.
-      const finalQrSize = qrSize * scale;
-      const finalX = qrPosition.x * scale;
-      // Scale the Y position and then invert it for the PDF's coordinate system (origin at bottom-left).
-      const finalY = pagePdfHeight - (qrPosition.y * scale) - finalQrSize;
+      const scaleX = pagePdfWidth / previewDimensions.width;
+      const scaleY = pagePdfHeight / previewDimensions.height;
+      
+      const finalQrWidth = qrSize * scaleX;
+      const finalQrHeight = qrSize * scaleY;
+      
+      const finalX = qrPosition.x * scaleX;
+      const finalY = pagePdfHeight - (qrPosition.y * scaleY) - finalQrHeight;
 
       firstPage.drawImage(qrImage, {
         x: finalX,
         y: finalY,
-        width: finalQrSize,
-        height: finalQrSize,
+        width: finalQrWidth,
+        height: finalQrHeight,
       });
 
       const pdfBytes = await pdfDoc.save();
