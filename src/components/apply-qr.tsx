@@ -132,12 +132,12 @@ export default function ApplyQrCode() {
       {showPreview ? (
         <motion.div
           key="preview"
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -20 }}
-          transition={{ duration: 0.3 }}
+          initial={{ opacity: 0, scale: 0.95, y: 20 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          exit={{ opacity: 0, scale: 0.95, y: -20 }}
+          transition={{ duration: 0.4, ease: "easeInOut" }}
         >
-          <Card className="w-full overflow-hidden shadow-lg border-primary/20">
+          <Card className="w-full overflow-hidden">
             <CardHeader>
               <CardTitle className="font-headline text-2xl text-primary">
                 Position Your QR Code
@@ -164,19 +164,21 @@ export default function ApplyQrCode() {
                   dragConstraints={previewAreaRef}
                   dragMomentum={false}
                   onDragEnd={(event, info) => {
-                    if (previewAreaRef.current) {
-                      const previewRect = previewAreaRef.current.getBoundingClientRect();
+                    const qrEl = qrRef.current;
+                    if(qrEl) {
                       setQrPosition({
-                        x: info.point.x - previewRect.left,
-                        y: info.point.y - previewRect.top,
+                        x: qrEl.offsetLeft,
+                        y: qrEl.offsetTop,
                       });
                     }
                   }}
                   className="absolute cursor-move select-none p-2 bg-white rounded-md shadow-2xl"
                   style={{ top: qrPosition.y, left: qrPosition.x }}
                   whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  initial={{ top: '50px', left: '50px' }}
+                  whileTap={{ scale: 0.95, cursor: 'grabbing' }}
+                  initial={{ top: '50px', left: '50px', scale: 0.5, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1}}
+                  transition={{ type: 'spring', stiffness: 300, damping: 20}}
                 >
                   {qrCodeUrl ? (
                     <Image
@@ -212,12 +214,12 @@ export default function ApplyQrCode() {
       ) : (
         <motion.div
           key="form"
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -20 }}
-          transition={{ duration: 0.3 }}
+          initial={{ opacity: 0, scale: 0.95, y: 20 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          exit={{ opacity: 0, scale: 0.95, y: -20 }}
+          transition={{ duration: 0.4, ease: "easeInOut" }}
         >
-          <Card className="w-full shadow-lg border-primary/20">
+          <Card className="w-full">
             <CardHeader>
               <CardTitle className="font-headline text-2xl text-primary">
                 Create Your Secured Certificate
@@ -250,7 +252,7 @@ export default function ApplyQrCode() {
                         htmlFor="certificate-upload"
                         className={cn(
                           "flex flex-col items-center justify-center w-full h-40 border-2 border-dashed rounded-lg cursor-pointer bg-background hover:bg-muted/50 transition-all duration-300",
-                          fileError ? "border-destructive hover:bg-destructive/10" : "border-border",
+                          fileError ? "border-destructive hover:bg-destructive/10" : "border-primary/30",
                           certificateFile && "border-green-500 bg-green-500/10"
                         )}
                       >
@@ -376,11 +378,11 @@ export default function ApplyQrCode() {
                   </div>
                 </CardContent>
                 <CardFooter>
-                  <Button type="submit" className="w-full" disabled={isApplying}>
+                  <Button type="submit" className="w-full text-lg h-12" disabled={isApplying}>
                     {isApplying ? (
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      <Loader2 className="mr-2 h-5 w-5 animate-spin" />
                     ) : 
-                    ( <ArrowRight className="mr-2 h-4 w-4" />)
+                    ( <ArrowRight className="mr-2 h-5 w-5" />)
                     }
                     Apply QR on Certificate
                   </Button>

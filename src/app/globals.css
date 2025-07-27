@@ -2,9 +2,31 @@
 @tailwind components;
 @tailwind utilities;
 
+@keyframes background-pan {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
 body {
   font-family: 'PT Sans', sans-serif;
+  animation: background-pan 15s ease-in-out infinite;
+  background: linear-gradient(
+    -45deg,
+    hsl(var(--background)),
+    hsl(210 40% 92%),
+    hsl(222.2 84% 8%),
+    hsl(var(--background))
+  );
+  background-size: 400% 400%;
 }
+
 
 @layer base {
   :root {
@@ -36,7 +58,7 @@ body {
     --input: 214.3 31.8% 91.4%;
     --ring: 207 43% 50%;
  
-    --radius: 0.5rem;
+    --radius: 0.8rem;
   }
  
   .dark {
