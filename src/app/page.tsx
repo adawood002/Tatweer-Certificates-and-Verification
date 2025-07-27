@@ -2,9 +2,9 @@
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import ApplyQrCode from "@/components/apply-qr";
-import Verification from "@/components/verification";
 import { motion } from "framer-motion";
 import { ShieldCheck } from "lucide-react";
+import Link from "next/link";
 
 export default function Home() {
   return (
@@ -30,13 +30,12 @@ export default function Home() {
         <Tabs defaultValue="apply-qr" className="w-full">
           <TabsList className="grid w-full grid-cols-2 h-12 rounded-lg bg-muted p-1">
             <TabsTrigger value="apply-qr" className="text-base font-medium rounded-md">Apply QR Code</TabsTrigger>
-            <TabsTrigger value="verification" className="text-base font-medium rounded-md">Verification</TabsTrigger>
+             <TabsTrigger value="verification" asChild className="text-base font-medium rounded-md data-[state=inactive]:hover:bg-muted/70 data-[state=inactive]:hover:text-muted-foreground">
+                <Link href="/verification">Verification</Link>
+            </TabsTrigger>
           </TabsList>
           <TabsContent value="apply-qr" className="mt-6">
             <ApplyQrCode />
-          </TabsContent>
-          <TabsContent value="verification" className="mt-6">
-            <Verification />
           </TabsContent>
         </Tabs>
       </div>
