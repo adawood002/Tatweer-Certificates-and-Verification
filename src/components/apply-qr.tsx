@@ -5,6 +5,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { format } from "date-fns";
+import { PDFDocument } from "pdf-lib";
 import {
   CalendarIcon,
   UploadCloud,
@@ -62,11 +63,18 @@ const formSchema = z.object({
 
 type FormValues = z.infer<typeof formSchema>;
 
+type PdfMetadata = {
+  width: number;
+  height: number;
+  scale: number;
+};
+
 export default function ApplyQrCode() {
   const { toast } = useToast();
   const [certificateFile, setCertificateFile] = useState<File | null>(null);
   const [fileError, setFileError] = useState<string | null>(null);
   const [pdfPreviewUrl, setPdfPreviewUrl] = useState<string | null>(null);
+  const [pdfMetadata, setPdfMetadata] = useState<PdfMetadata | null>(null);
   const [showPreview, setShowPreview] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [qrCodeUrl, setQrCodeUrl] = useState<string | null>(null);
@@ -75,7 +83,7 @@ export default function ApplyQrCode() {
   const [qrPosition, setQrPosition] = useState({ x: 50, y: 50 });
   const qrRef = useRef<HTMLDivElement>(null);
   const previewAreaRef = useRef<HTMLDivElement>(null);
-  
+
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -85,16 +93,27 @@ export default function ApplyQrCode() {
     },
   });
 
-  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
       if (file.type === "application/pdf" && file.size <= 5 * 1024 * 1024) {
         setCertificateFile(file);
         setPdfPreviewUrl(URL.createObjectURL(file));
         setFileError(null);
+
+        // Extract PDF metadata
+        const fileBuffer = await file.arrayBuffer();
+        const pdfDoc = await PDFDocument.load(fileBuffer);
+        const firstPage = pdfDoc.getPages()[0];
+        if (firstPage && previewAreaRef.current) {
+          const { width, height } = firstPage.getSize();
+          const scale = previewAreaRef.current.offsetWidth / width;
+          setPdfMetadata({ width, height, scale });
+        }
       } else {
         setCertificateFile(null);
         setPdfPreviewUrl(null);
+        setPdfMetadata(null);
         setFileError("Please upload a PDF file smaller than 5MB.");
       }
     }
@@ -124,68 +143,72 @@ export default function ApplyQrCode() {
   };
 
   const handleSaveAndDownload = async () => {
-    if (!certificateFile || !qrCodeUrl) {
-        toast({
-            title: "Error",
-            description: "Missing certificate or QR code.",
-            variant: "destructive",
-        });
-        return;
+    if (!certificateFile || !qrCodeUrl || !pdfMetadata) {
+      toast({
+        title: "Error",
+        description: "Missing certificate, QR code, or PDF metadata.",
+        variant: "destructive",
+      });
+      return;
     }
 
     setIsProcessing(true);
     toast({
-        title: "Processing Certificate",
-        description: "Applying QR code and preparing your download...",
+      title: "Processing Certificate",
+      description: "Applying QR code and preparing your download...",
     });
 
     try {
-        const fileReader = new FileReader();
-        fileReader.readAsDataURL(certificateFile);
-        fileReader.onload = async () => {
-            const pdfBase64 = (fileReader.result as string).split(',')[1];
+      const fileReader = new FileReader();
+      fileReader.readAsDataURL(certificateFile);
+      fileReader.onload = async () => {
+        const pdfBase64 = (fileReader.result as string).split(",")[1];
 
-            if (!pdfBase64) {
-                throw new Error("Failed to read the PDF file.");
-            }
+        if (!pdfBase64) {
+          throw new Error("Failed to read the PDF file.");
+        }
 
-            const newPdfBase64 = await applyQrToPdf({
-                pdfBase64,
-                qrCodeDataUrl: qrCodeUrl,
-                x: qrPosition.x,
-                y: qrPosition.y,
-                size: qrSize,
-            });
+        // Adjust position and size based on the PDF's scale in the preview
+        const adjustedX = qrPosition.x / pdfMetadata.scale;
+        const adjustedY = qrPosition.y / pdfMetadata.scale;
+        const adjustedSize = qrSize / pdfMetadata.scale;
 
-            // Trigger download
-            const link = document.createElement("a");
-            link.href = `data:application/pdf;base64,${newPdfBase64}`;
-            link.download = `secured-${certificateFile.name}`;
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            
-            toast({
-                title: "Download Successful!",
-                description: "Your secured certificate has been downloaded.",
-                variant: "default",
-            });
-        };
-
-        fileReader.onerror = (error) => {
-            console.error("FileReader error:", error);
-            throw new Error("Failed to read the uploaded file.");
-        };
-
-    } catch (error) {
-        console.error("Failed to save and download certificate:", error);
-        toast({
-            title: "Download Failed",
-            description: "Could not process your certificate. Please try again.",
-            variant: "destructive",
+        const newPdfBase64 = await applyQrToPdf({
+          pdfBase64,
+          qrCodeDataUrl: qrCodeUrl,
+          x: adjustedX,
+          y: adjustedY,
+          size: adjustedSize,
         });
+
+        // Trigger download
+        const link = document.createElement("a");
+        link.href = `data:application/pdf;base64,${newPdfBase64}`;
+        link.download = `secured-${certificateFile.name}`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+
+        toast({
+          title: "Download Successful!",
+          description: "Your secured certificate has been downloaded.",
+          variant: "default",
+        });
+      };
+
+      fileReader.onerror = (error) => {
+        console.error("FileReader error:", error);
+        throw new Error("Failed to read the uploaded file.");
+      };
+    } catch (error) {
+      console.error("Failed to save and download certificate:", error);
+      toast({
+        title: "Download Failed",
+        description: "Could not process your certificate. Please try again.",
+        variant: "destructive",
+      });
     } finally {
-        setIsProcessing(false);
+      setIsProcessing(false);
     }
   };
 
@@ -215,7 +238,7 @@ export default function ApplyQrCode() {
               >
                 {pdfPreviewUrl && (
                   <iframe
-                    src={pdfPreviewUrl}
+                    src={`${pdfPreviewUrl}#toolbar=0&navpanes=0`}
                     className="w-full h-full pointer-events-none"
                     title="Certificate Preview"
                   />
@@ -225,14 +248,13 @@ export default function ApplyQrCode() {
                   drag
                   dragConstraints={previewAreaRef}
                   dragMomentum={false}
-                  onDragEnd={() => {
+                  onDragEnd={(_event, info) => {
                     const qrEl = qrRef.current;
-                    const previewEl = previewAreaRef.current;
-                    if(qrEl && previewEl) {
-                      setQrPosition({
-                        x: qrEl.offsetLeft,
-                        y: qrEl.offsetTop,
-                      });
+                    if(qrEl) {
+                        setQrPosition({
+                          x: qrEl.offsetLeft,
+                          y: qrEl.offsetTop,
+                        });
                     }
                   }}
                   className="absolute cursor-move select-none p-2 bg-white rounded-md shadow-2xl"
@@ -479,3 +501,5 @@ export default function ApplyQrCode() {
     </AnimatePresence>
   );
 }
+
+    

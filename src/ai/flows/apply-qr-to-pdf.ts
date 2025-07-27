@@ -42,9 +42,10 @@ const applyQrToPdfFlow = ai.defineFlow(
         throw new Error('The PDF has no pages.');
       }
       
-      // pdf-lib's y-axis starts from the bottom, but our UI's y-axis starts from the top.
-      // We need to convert the coordinate.
       const { height: pageHeight } = firstPage.getSize();
+      
+      // Invert y-coordinate because pdf-lib's origin (0,0) is at the bottom-left,
+      // while our frontend's origin is at the top-left.
       const invertedY = pageHeight - y - size;
 
       firstPage.drawImage(qrImage, {
@@ -62,3 +63,5 @@ const applyQrToPdfFlow = ai.defineFlow(
     }
   }
 );
+
+    
