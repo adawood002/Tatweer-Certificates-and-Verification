@@ -5,7 +5,6 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { format } from "date-fns";
-import { PDFDocument } from "pdf-lib";
 import {
   CalendarIcon,
   UploadCloud,
@@ -63,18 +62,11 @@ const formSchema = z.object({
 
 type FormValues = z.infer<typeof formSchema>;
 
-type PdfMetadata = {
-  width: number;
-  height: number;
-  scale: number;
-};
-
 export default function ApplyQrCode() {
   const { toast } = useToast();
   const [certificateFile, setCertificateFile] = useState<File | null>(null);
   const [fileError, setFileError] = useState<string | null>(null);
   const [pdfPreviewUrl, setPdfPreviewUrl] = useState<string | null>(null);
-  const [pdfMetadata, setPdfMetadata] = useState<PdfMetadata | null>(null);
   const [showPreview, setShowPreview] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [qrCodeUrl, setQrCodeUrl] = useState<string | null>(null);
@@ -98,28 +90,13 @@ export default function ApplyQrCode() {
     if (file) {
       if (file.type === "application/pdf" && file.size <= 5 * 1024 * 1024) {
         setCertificateFile(file);
-        setPdfPreviewUrl(URL.createObjectURL(file));
         setFileError(null);
-
-        // Extract PDF metadata
-        try {
-            const fileBuffer = await file.arrayBuffer();
-            const pdfDoc = await PDFDocument.load(fileBuffer);
-            const firstPage = pdfDoc.getPages()[0];
-            if (firstPage && previewAreaRef.current) {
-              const { width, height } = firstPage.getSize();
-              const scale = previewAreaRef.current.offsetWidth / width;
-              setPdfMetadata({ width, height, scale });
-            }
-        } catch (error) {
-            console.error("Failed to parse PDF metadata:", error);
-            setFileError("Could not read PDF metadata. The file might be corrupted.");
-            setPdfMetadata(null);
-        }
+        // We no longer need to read the PDF on the frontend.
+        // The object URL is enough for the iframe preview.
+        setPdfPreviewUrl(URL.createObjectURL(file));
       } else {
         setCertificateFile(null);
         setPdfPreviewUrl(null);
-        setPdfMetadata(null);
         setFileError("Please upload a PDF file smaller than 5MB.");
       }
     }
@@ -149,10 +126,10 @@ export default function ApplyQrCode() {
   };
 
   const handleSaveAndDownload = async () => {
-    if (!certificateFile || !qrCodeUrl || !pdfMetadata) {
+    if (!certificateFile || !qrCodeUrl || !previewAreaRef.current) {
       toast({
         title: "Error",
-        description: "Missing certificate, QR code, or PDF metadata.",
+        description: "Missing certificate, QR code, or preview area.",
         variant: "destructive",
       });
       return;
@@ -173,18 +150,15 @@ export default function ApplyQrCode() {
         if (!pdfBase64) {
           throw new Error("Failed to read the PDF file.");
         }
-
-        // Adjust position and size based on the PDF's scale in the preview
-        const adjustedX = qrPosition.x / pdfMetadata.scale;
-        const adjustedY = qrPosition.y / pdfMetadata.scale;
-        const adjustedSize = qrSize / pdfMetadata.scale;
+        
+        const previewRect = previewAreaRef.current!.getBoundingClientRect();
 
         const newPdfBase64 = await applyQrToPdf({
           pdfBase64,
           qrCodeDataUrl: qrCodeUrl,
-          x: adjustedX,
-          y: adjustedY,
-          size: adjustedSize,
+          qrPosition: { x: qrPosition.x, y: qrPosition.y },
+          qrSize,
+          previewDimensions: { width: previewRect.width, height: previewRect.height },
         });
 
         // Trigger download
@@ -345,7 +319,7 @@ export default function ApplyQrCode() {
             <Form {...form}>
               <form onSubmit={form.handleSubmit(onSubmit)} noValidate>
                 <CardContent className="space-y-6">
-                  <div ref={previewAreaRef}>
+                  <div>
                     <FormItem>
                         <FormLabel
                         className={cn("font-semibold", fileError && "text-destructive")}
