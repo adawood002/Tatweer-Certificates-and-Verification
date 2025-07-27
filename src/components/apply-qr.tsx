@@ -164,12 +164,19 @@ export default function ApplyQrCode() {
                   dragConstraints={previewAreaRef}
                   dragMomentum={false}
                   onDragEnd={(event, info) => {
-                    setQrPosition({ x: info.point.x, y: info.point.y });
+                    if (previewAreaRef.current) {
+                      const previewRect = previewAreaRef.current.getBoundingClientRect();
+                      setQrPosition({
+                        x: info.point.x - previewRect.left,
+                        y: info.point.y - previewRect.top,
+                      });
+                    }
                   }}
                   className="absolute cursor-move select-none p-2 bg-white rounded-md shadow-2xl"
                   style={{ top: qrPosition.y, left: qrPosition.x }}
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
+                  initial={{ top: '50px', left: '50px' }}
                 >
                   {qrCodeUrl ? (
                     <Image
