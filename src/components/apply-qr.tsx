@@ -45,6 +45,7 @@ import {
 import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
+import { generateQrCode } from "@/ai/flows/generate-qr-code";
 
 const formSchema = z.object({
   companyName: z.string().min(2, {
@@ -64,6 +65,7 @@ export default function ApplyQrCode() {
   const [pdfPreviewUrl, setPdfPreviewUrl] = useState<string | null>(null);
   const [showPreview, setShowPreview] = useState(false);
   const [isApplying, setIsApplying] = useState(false);
+  const [qrCodeUrl, setQrCodeUrl] = useState<string | null>(null);
 
   const [qrPosition, setQrPosition] = useState({ x: 50, y: 50 });
   const qrRef = useRef<HTMLDivElement>(null);
@@ -93,17 +95,27 @@ export default function ApplyQrCode() {
     }
   };
 
-  const onSubmit = (values: FormValues) => {
+  const onSubmit = async (values: FormValues) => {
     if (!certificateFile) {
       setFileError("Please upload a certificate PDF.");
       return;
     }
     setIsApplying(true);
-    // Simulate processing time
-    setTimeout(() => {
+    try {
+      const verificationUrl = `${window.location.origin}/verify/${encodeURIComponent(values.workId)}`;
+      const qrCodeDataUrl = await generateQrCode(verificationUrl);
+      setQrCodeUrl(qrCodeDataUrl);
       setShowPreview(true);
+    } catch (error) {
+      console.error("Failed to generate QR code:", error);
+      toast({
+        title: "Error",
+        description: "Could not generate the QR code. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
       setIsApplying(false);
-    }, 1500);
+    }
   };
 
   const handleSaveAndDownload = () => {
@@ -159,14 +171,19 @@ export default function ApplyQrCode() {
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
                 >
-                  <Image
-                    src="https://placehold.co/120x120/png"
-                    alt="QR Code"
-                    width={120}
-                    height={120}
-                    data-ai-hint="qr code"
-                    className="pointer-events-none"
-                  />
+                  {qrCodeUrl ? (
+                    <Image
+                      src={qrCodeUrl}
+                      alt="QR Code"
+                      width={120}
+                      height={120}
+                      className="pointer-events-none"
+                    />
+                  ) : (
+                    <div className="w-[120px] h-[120px] flex items-center justify-center">
+                      <Loader2 className="animate-spin"/>
+                    </div>
+                  )}
                    <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-primary text-primary-foreground px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none">
                     <Move size={12} />
                     Drag Me
@@ -178,7 +195,7 @@ export default function ApplyQrCode() {
               <Button variant="outline" onClick={() => setShowPreview(false)}>
                 Back to Edit
               </Button>
-              <Button onClick={handleSaveAndDownload}>
+              <Button onClick={handleSaveAndDownload} disabled={!qrCodeUrl}>
                 <Download className="mr-2 h-4 w-4" />
                 Save & Download
               </Button>
