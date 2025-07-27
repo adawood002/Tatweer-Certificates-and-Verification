@@ -102,13 +102,19 @@ export default function ApplyQrCode() {
         setFileError(null);
 
         // Extract PDF metadata
-        const fileBuffer = await file.arrayBuffer();
-        const pdfDoc = await PDFDocument.load(fileBuffer);
-        const firstPage = pdfDoc.getPages()[0];
-        if (firstPage && previewAreaRef.current) {
-          const { width, height } = firstPage.getSize();
-          const scale = previewAreaRef.current.offsetWidth / width;
-          setPdfMetadata({ width, height, scale });
+        try {
+            const fileBuffer = await file.arrayBuffer();
+            const pdfDoc = await PDFDocument.load(fileBuffer);
+            const firstPage = pdfDoc.getPages()[0];
+            if (firstPage && previewAreaRef.current) {
+              const { width, height } = firstPage.getSize();
+              const scale = previewAreaRef.current.offsetWidth / width;
+              setPdfMetadata({ width, height, scale });
+            }
+        } catch (error) {
+            console.error("Failed to parse PDF metadata:", error);
+            setFileError("Could not read PDF metadata. The file might be corrupted.");
+            setPdfMetadata(null);
         }
       } else {
         setCertificateFile(null);
@@ -339,68 +345,69 @@ export default function ApplyQrCode() {
             <Form {...form}>
               <form onSubmit={form.handleSubmit(onSubmit)} noValidate>
                 <CardContent className="space-y-6">
-                  <FormItem>
-                    <FormLabel
-                      className={cn("font-semibold", fileError && "text-destructive")}
-                      htmlFor="certificate-upload"
-                    >
-                      Upload Certificate
-                    </FormLabel>
-                    <div className="relative">
-                      <FormControl>
-                        <Input
-                          id="certificate-upload"
-                          type="file"
-                          accept="application/pdf"
-                          className="hidden"
-                          onChange={handleFileChange}
-                        />
-                      </FormControl>
-                      <label
+                  <div ref={previewAreaRef}>
+                    <FormItem>
+                        <FormLabel
+                        className={cn("font-semibold", fileError && "text-destructive")}
                         htmlFor="certificate-upload"
-                        className={cn(
-                          "flex flex-col items-center justify-center w-full h-40 border-2 border-dashed rounded-lg cursor-pointer bg-background hover:bg-accent/10 transition-colors duration-200",
-                          fileError ? "border-destructive hover:bg-destructive/10" : "border-border",
-                          certificateFile && "border-green-500 bg-green-50"
-                        )}
-                      >
-                         <div 
-                          className="flex flex-col items-center justify-center pt-5 pb-6 text-center"
-                         >
-                          {certificateFile ? (
-                            <>
-                              <FileCheck2 className="w-10 h-10 mb-3 text-green-600" />
-                              <p className="mb-2 text-sm text-foreground">
-                                <span className="font-semibold">
-                                  {certificateFile.name}
-                                </span>
-                              </p>
-                              <p className="text-xs text-muted-foreground">
-                                Click to replace file
-                              </p>
-                            </>
-                          ) : (
-                            <>
-                              <UploadCloud className="w-10 h-10 mb-3 text-muted-foreground" />
-                              <p className="mb-2 text-sm text-muted-foreground">
-                                <span className="font-semibold text-primary">Click to upload</span> or drag and drop
-                              </p>
-                              <p className="text-xs text-muted-foreground">
-                                PDF only (MAX. 5MB)
-                              </p>
-                            </>
-                          )}
+                        >
+                        Upload Certificate
+                        </FormLabel>
+                        <div className="relative">
+                        <FormControl>
+                            <Input
+                            id="certificate-upload"
+                            type="file"
+                            accept="application/pdf"
+                            className="hidden"
+                            onChange={handleFileChange}
+                            />
+                        </FormControl>
+                        <label
+                            htmlFor="certificate-upload"
+                            className={cn(
+                            "flex flex-col items-center justify-center w-full h-40 border-2 border-dashed rounded-lg cursor-pointer bg-background hover:bg-accent/10 transition-colors duration-200",
+                            fileError ? "border-destructive hover:bg-destructive/10" : "border-border",
+                            certificateFile && "border-green-500 bg-green-50"
+                            )}
+                        >
+                            <div 
+                            className="flex flex-col items-center justify-center pt-5 pb-6 text-center"
+                            >
+                            {certificateFile ? (
+                                <>
+                                <FileCheck2 className="w-10 h-10 mb-3 text-green-600" />
+                                <p className="mb-2 text-sm text-foreground">
+                                    <span className="font-semibold">
+                                    {certificateFile.name}
+                                    </span>
+                                </p>
+                                <p className="text-xs text-muted-foreground">
+                                    Click to replace file
+                                </p>
+                                </>
+                            ) : (
+                                <>
+                                <UploadCloud className="w-10 h-10 mb-3 text-muted-foreground" />
+                                <p className="mb-2 text-sm text-muted-foreground">
+                                    <span className="font-semibold text-primary">Click to upload</span> or drag and drop
+                                </p>
+                                <p className="text-xs text-muted-foreground">
+                                    PDF only (MAX. 5MB)
+                                </p>
+                                </>
+                            )}
+                            </div>
+                        </label>
                         </div>
-                      </label>
-                    </div>
-                    {fileError && (
-                      <FormMessage className="flex items-center gap-1 pt-1">
-                        <AlertCircle size={14} />
-                        {fileError}
-                      </FormMessage>
-                    )}
-                  </FormItem>
-
+                        {fileError && (
+                        <FormMessage className="flex items-center gap-1 pt-1">
+                            <AlertCircle size={14} />
+                            {fileError}
+                        </FormMessage>
+                        )}
+                    </FormItem>
+                  </div>
                   <div className="grid md:grid-cols-2 gap-6">
                     <FormField
                       control={form.control}
@@ -501,5 +508,3 @@ export default function ApplyQrCode() {
     </AnimatePresence>
   );
 }
-
-    
