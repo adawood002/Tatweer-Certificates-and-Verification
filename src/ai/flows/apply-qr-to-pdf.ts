@@ -10,7 +10,7 @@ import { ai } from '@/ai/genkit';
 import { z } from 'zod';
 import { PDFDocument } from 'pdf-lib';
 
-export const ApplyQrToPdfInputSchema = z.object({
+const ApplyQrToPdfInputSchema = z.object({
   pdfBase64: z.string().describe('The original PDF file encoded in base64.'),
   qrCodeDataUrl: z.string().describe('The QR code image as a data URL.'),
   x: z.number().describe('The x-coordinate to place the QR code.'),
@@ -24,7 +24,7 @@ export async function applyQrToPdf(input: ApplyQrToPdfInput): Promise<string> {
     return applyQrToPdfFlow(input);
 }
 
-export const applyQrToPdfFlow = ai.defineFlow(
+const applyQrToPdfFlow = ai.defineFlow(
   {
     name: 'applyQrToPdfFlow',
     inputSchema: ApplyQrToPdfInputSchema,

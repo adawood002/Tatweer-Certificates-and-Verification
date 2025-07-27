@@ -9,7 +9,7 @@ import { ai } from '@/ai/genkit';
 import { z } from 'zod';
 import QRCode from 'qrcode';
 
-export const generateQrCodeFlow = ai.defineFlow(
+const generateQrCodeFlow = ai.defineFlow(
   {
     name: 'generateQrCodeFlow',
     inputSchema: z.string(),
