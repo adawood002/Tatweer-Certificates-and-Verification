@@ -13,15 +13,8 @@ import { PDFDocument } from 'pdf-lib';
 const ApplyQrToPdfInputSchema = z.object({
   pdfBase64: z.string().describe('The original PDF file encoded in base64.'),
   qrCodeDataUrl: z.string().describe('The QR code image as a data URL.'),
-  qrPosition: z.object({
-    x: z.number(),
-    y: z.number(),
-  }).describe('The raw pixel coordinates of the QR code in the frontend preview.'),
-  qrSize: z.number().describe('The size of the QR code in pixels.'),
-  previewDimensions: z.object({
-    width: z.number(),
-    height: z.number(),
-  }).describe('The dimensions of the preview area in pixels.'),
+  qrPosition: z.enum(["bottom-right", "bottom-left", "top-right", "top-left"]).describe('The desired position for the QR code on the page.'),
+  qrSizeInPixels: z.number().describe('The desired size of the QR code in pixels.'),
 });
 
 export type ApplyQrToPdfInput = z.infer<typeof ApplyQrToPdfInputSchema>;
@@ -36,7 +29,7 @@ const applyQrToPdfFlow = ai.defineFlow(
     inputSchema: ApplyQrToPdfInputSchema,
     outputSchema: z.string(),
   },
-  async ({ pdfBase64, qrCodeDataUrl, qrPosition, qrSize, previewDimensions }) => {
+  async ({ pdfBase64, qrCodeDataUrl, qrPosition, qrSizeInPixels }) => {
     try {
       const pdfDoc = await PDFDocument.load(Buffer.from(pdfBase64, 'base64'));
       const qrImage = await pdfDoc.embedPng(qrCodeDataUrl);
@@ -48,23 +41,42 @@ const applyQrToPdfFlow = ai.defineFlow(
         throw new Error('The PDF has no pages.');
       }
       
-      const { width: pagePdfWidth, height: pagePdfHeight } = firstPage.getSize();
+      const { width: pageWidth, height: pageHeight } = firstPage.getSize();
       
-      const scaleX = pagePdfWidth / previewDimensions.width;
-      const scaleY = pagePdfHeight / previewDimensions.height;
+      // Convert QR size from pixels to PDF points (assuming 72 DPI for simplicity, a common standard).
+      // This gives us a reasonable baseline for scaling.
+      const qrSizeInPoints = qrSizeInPixels * (72 / 96);
       
-      const finalQrWidth = qrSize * scaleX;
-      const finalQrHeight = qrSize * scaleY;
-      
-      const finalX = qrPosition.x * scaleX;
-      // Correctly calculate Y position for PDF's bottom-left origin
-      const finalY = pagePdfHeight - (qrPosition.y * scaleY) - finalQrHeight;
+      const margin = 20; // Margin from the edge in points
 
+      let x = 0;
+      let y = 0;
+
+      switch (qrPosition) {
+        case "bottom-left":
+          x = margin;
+          y = margin;
+          break;
+        case "top-left":
+          x = margin;
+          y = pageHeight - qrSizeInPoints - margin;
+          break;
+        case "top-right":
+          x = pageWidth - qrSizeInPoints - margin;
+          y = pageHeight - qrSizeInPoints - margin;
+          break;
+        case "bottom-right":
+        default:
+          x = pageWidth - qrSizeInPoints - margin;
+          y = margin;
+          break;
+      }
+      
       firstPage.drawImage(qrImage, {
-        x: finalX,
-        y: finalY,
-        width: finalQrWidth,
-        height: finalQrHeight,
+        x: x,
+        y: y,
+        width: qrSizeInPoints,
+        height: qrSizeInPoints,
       });
 
       const pdfBytes = await pdfDoc.save();
