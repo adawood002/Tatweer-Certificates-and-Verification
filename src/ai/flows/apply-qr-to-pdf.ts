@@ -57,6 +57,7 @@ const applyQrToPdfFlow = ai.defineFlow(
       const finalQrHeight = qrSize * scaleY;
       
       const finalX = qrPosition.x * scaleX;
+      // Correctly calculate Y position for PDF's bottom-left origin
       const finalY = pagePdfHeight - (qrPosition.y * scaleY) - finalQrHeight;
 
       firstPage.drawImage(qrImage, {

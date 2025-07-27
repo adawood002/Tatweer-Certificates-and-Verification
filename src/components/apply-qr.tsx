@@ -100,16 +100,25 @@ export default function ApplyQrCode() {
           const fileReader = new FileReader();
           fileReader.readAsArrayBuffer(file);
           fileReader.onload = async () => {
-            const pdfDoc = await PDFDocument.load(fileReader.result as ArrayBuffer);
-            const { width, height } = pdfDoc.getPages()[0].getSize();
-            setPdfMetadata({ width, height });
-            setCertificateFile(file);
-            setCertificateUrl(URL.createObjectURL(file));
-            setFileError(null);
+            try {
+                const pdfDoc = await PDFDocument.load(fileReader.result as ArrayBuffer);
+                const { width, height } = pdfDoc.getPages()[0].getSize();
+                setPdfMetadata({ width, height });
+                setCertificateFile(file);
+                // NOTE: Creating a new object URL each time to force re-render in the preview.
+                setCertificateUrl(URL.createObjectURL(file)); 
+                setFileError(null);
+            } catch (error) {
+                console.error("Error processing PDF:", error);
+                setFileError("Could not process this PDF file.");
+                setCertificateFile(null);
+                setCertificateUrl(null);
+                setPdfMetadata(null);
+            }
           };
         } catch (error) {
-           console.error("Error processing PDF:", error);
-           setFileError("Could not process this PDF file.");
+           console.error("Error reading file:", error);
+           setFileError("Could not read this file.");
         }
       } else {
         setCertificateFile(null);
@@ -144,10 +153,10 @@ export default function ApplyQrCode() {
   };
 
   const handleSaveAndDownload = async () => {
-    if (!certificateFile || !qrCodeUrl || !previewAreaRef.current || !pdfMetadata) {
+    if (!certificateFile || !qrCodeUrl || !previewAreaRef.current) {
       toast({
         title: "Error",
-        description: "Missing certificate, QR code, or PDF metadata.",
+        description: "Missing certificate, QR code, or preview reference.",
         variant: "destructive",
       });
       return;
