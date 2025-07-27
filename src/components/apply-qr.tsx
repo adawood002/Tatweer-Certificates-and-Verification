@@ -78,7 +78,8 @@ export default function ApplyQrCode() {
   const [qrSize, setQrSize] = useState(120);
 
   const previewContainerRef = useRef<HTMLDivElement>(null);
-  const qrRef = useRef<HTMLImageElement>(null);
+  const isDraggingRef = useRef(false);
+  const dragStartRef = useRef({ x: 0, y: 0 });
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -244,41 +245,38 @@ export default function ApplyQrCode() {
       }
   }
 
-  useEffect(() => {
-    let isDragging = false;
-    
-    const handleMouseDown = (event: MouseEvent) => {
-      if(event.button !== 0 || !qrRef.current?.contains(event.target as Node)) return;
-      isDragging = true;
-    }
+  const handleMouseDown = (event: React.MouseEvent<HTMLImageElement>) => {
+    if (event.button !== 0) return;
+    isDraggingRef.current = true;
+    dragStartRef.current = {
+      x: event.clientX - qrPosition.x,
+      y: event.clientY - qrPosition.y,
+    };
+    event.preventDefault();
 
-    const handleMouseMove = (event: MouseEvent) => {
-      if (!isDragging || !qrRef.current || !previewContainerRef.current) return;
+    const handleMouseMove = (moveEvent: MouseEvent) => {
+      if (!isDraggingRef.current || !previewContainerRef.current) return;
 
       const containerRect = previewContainerRef.current.getBoundingClientRect();
-      let x = event.clientX - containerRect.left - qrSize / 2;
-      let y = event.clientY - containerRect.top - qrSize / 2;
-      
-      x = Math.max(0, Math.min(x, containerRect.width - qrSize));
-      y = Math.max(0, Math.min(y, containerRect.height - qrSize));
+      let newX = moveEvent.clientX - dragStartRef.current.x;
+      let newY = moveEvent.clientY - dragStartRef.current.y;
 
-      setQrPosition({ x, y });
+      newX = Math.max(0, Math.min(newX, containerRect.width - qrSize));
+      newY = Math.max(0, Math.min(newY, containerRect.height - qrSize));
+
+      setQrPosition({ x: newX, y: newY });
     };
 
     const handleMouseUp = () => {
-      isDragging = false;
+      isDraggingRef.current = false;
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
     };
-    
-    window.addEventListener('mousedown', handleMouseDown as EventListener);
-    window.addEventListener('mousemove', handleMouseMove);
-    window.addEventListener('mouseup', handleMouseUp);
-    
-    return () => {
-      window.removeEventListener('mousedown', handleMouseDown as EventListener);
-      window.removeEventListener('mousemove', handleMouseMove);
-      window.removeEventListener('mouseup', handleMouseUp);
-    };
-  }, [qrSize]);
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+  };
+
 
   return (
     <Card className="w-full shadow-lg">
@@ -475,11 +473,12 @@ export default function ApplyQrCode() {
                             <div className="md:col-span-2 relative w-full border-2 border-dashed rounded-lg p-2" ref={previewContainerRef}>
                                 <img src={pdfPreviewUrl} alt="Certificate Preview" className="w-full h-auto" />
                                 <motion.img
-                                    ref={qrRef}
                                     src={qrCodeUrl}
                                     alt="QR Code"
                                     className="absolute cursor-move"
                                     style={{
+                                        left: 0,
+                                        top: 0,
                                         width: `${qrSize}px`,
                                         height: `${qrSize}px`,
                                         touchAction: 'none'
@@ -490,7 +489,7 @@ export default function ApplyQrCode() {
                                         width: qrSize,
                                         height: qrSize
                                     }}
-                                    dragMomentum={false}
+                                    onMouseDown={handleMouseDown}
                                 />
                             </div>
                             <div className="space-y-6">
