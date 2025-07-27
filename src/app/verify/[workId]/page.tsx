@@ -14,7 +14,7 @@ export default function VerificationPage({ params }: VerificationPageProps) {
       <div className="w-full max-w-2xl mx-auto">
         <header className="text-center mb-10">
           <h1 className="text-5xl font-extrabold font-headline text-primary tracking-tight">
-            CertiSeal
+            Tatweer Certificates
           </h1>
           <p className="mt-2 text-lg text-muted-foreground">
             Certificate Verification

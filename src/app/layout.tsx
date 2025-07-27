@@ -3,7 +3,7 @@ import './globals.css';
 import { Toaster } from "@/components/ui/toaster"
 
 export const metadata: Metadata = {
-  title: 'CertiSeal',
+  title: 'Tatweer Certificates',
   description: 'Apply QR codes to certificates and verify them.',
 };
 
