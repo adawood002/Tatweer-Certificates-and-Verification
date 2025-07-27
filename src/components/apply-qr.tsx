@@ -1,10 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { format } from "date-fns";
+import { motion, AnimatePresence } from "framer-motion";
+
 import {
   CalendarIcon,
   UploadCloud,
@@ -13,8 +15,8 @@ import {
   AlertCircle,
   Loader2,
   ZoomIn,
-  MoveHorizontal,
-  MoveVertical,
+  Move,
+  Scan,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -46,19 +48,15 @@ import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { generateQrCode } from "@/ai/flows/generate-qr-code";
 import { applyQrToPdf } from "@/ai/flows/apply-qr-to-pdf";
+import { generatePdfPreview } from "@/ai/flows/generate-pdf-preview";
 import { Slider } from "@/components/ui/slider";
 import { Label } from "@/components/ui/label";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 
 const formSchema = z.object({
   companyName: z.string().min(2, "Company name must be at least 2 characters."),
   companyId: z.string().min(1, "Company ID is required."),
   workId: z.string().min(1, "Work ID is required."),
   expiryDate: z.date({ required_error: "An expiry date is required." }),
-  qrPosition: z.enum(["bottom-right", "bottom-left", "top-right", "top-left"], {
-    required_error: "You need to select a QR code position.",
-  }),
-  qrSize: z.number().min(50).max(250),
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -68,6 +66,16 @@ export default function ApplyQrCode() {
   const [certificateFile, setCertificateFile] = useState<File | null>(null);
   const [fileError, setFileError] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
+  
+  const [pdfPreviewUrl, setPdfPreviewUrl] = useState<string | null>(null);
+  const [qrCodeUrl, setQrCodeUrl] = useState<string | null>(null);
+  const [isGenerating, setIsGenerating] = useState(false);
+
+  const [qrPosition, setQrPosition] = useState({ x: 10, y: 10 });
+  const [qrSize, setQrSize] = useState(120);
+
+  const previewContainerRef = useRef<HTMLDivElement>(null);
+  const qrRef = useRef<HTMLImageElement>(null);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -75,89 +83,192 @@ export default function ApplyQrCode() {
       companyName: "",
       companyId: "",
       workId: "",
-      qrPosition: "bottom-right",
-      qrSize: 120,
     },
   });
 
-  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
       if (file.type === "application/pdf" && file.size <= 5 * 1024 * 1024) {
         setCertificateFile(file);
         setFileError(null);
+        setPdfPreviewUrl(null); // Reset previous preview
+        setIsGenerating(true);
+
+        try {
+          const reader = new FileReader();
+          reader.readAsDataURL(file);
+          reader.onload = async () => {
+            const pdfBase64 = (reader.result as string).split(",")[1];
+            if (pdfBase64) {
+              const previewDataUrl = await generatePdfPreview({ pdfBase64 });
+              setPdfPreviewUrl(previewDataUrl);
+            }
+          };
+          reader.onerror = () => {
+             throw new Error("Failed to read the PDF file.");
+          }
+        } catch (error) {
+            console.error("Failed to generate preview:", error);
+            setFileError("Could not generate a preview for this PDF.");
+            setCertificateFile(null);
+        } finally {
+            setIsGenerating(false);
+        }
+
       } else {
         setCertificateFile(null);
+        setPdfPreviewUrl(null);
         setFileError("Please upload a PDF file smaller than 5MB.");
       }
     }
   };
 
-  const onSubmit = async (values: FormValues) => {
-    if (!certificateFile) {
-      setFileError("Please upload a certificate PDF.");
+  const handleGenerateQr = async () => {
+    const { workId, companyName, companyId, expiryDate } = form.getValues();
+    if (!workId || !companyName || !companyId || !expiryDate) {
+      toast({
+        title: "Missing Information",
+        description: "Please fill out all fields before generating the QR code.",
+        variant: "destructive",
+      });
       return;
     }
 
-    setIsProcessing(true);
+    setIsGenerating(true);
     toast({
-      title: "Processing Certificate...",
-      description: "Generating QR code and applying it to your document.",
+      title: "Generating QR Code...",
     });
 
     try {
-      // 1. Generate QR Code
-      const verificationUrl = `${window.location.origin}/verify/${encodeURIComponent(values.workId)}`;
+      const verificationUrl = `${window.location.origin}/verify/${encodeURIComponent(workId)}`;
       const qrCodeDataUrl = await generateQrCode(verificationUrl);
-
-      // 2. Read PDF file as Base64
-      const fileReader = new FileReader();
-      fileReader.readAsDataURL(certificateFile);
-      fileReader.onload = async () => {
-        const pdfBase64 = (fileReader.result as string).split(",")[1];
-        if (!pdfBase64) {
-          throw new Error("Failed to read the PDF file.");
-        }
-
-        // 3. Apply QR to PDF via the flow
-        const newPdfBase64 = await applyQrToPdf({
-          pdfBase64,
-          qrCodeDataUrl,
-          qrPosition: values.qrPosition,
-          qrSizeInPixels: values.qrSize,
-        });
-
-        // 4. Trigger download
-        const link = document.createElement("a");
-        link.href = `data:application/pdf;base64,${newPdfBase64}`;
-        link.download = `secured-${certificateFile.name}`;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-
-        toast({
-          title: "Download Successful!",
-          description: "Your secured certificate has been downloaded.",
-        });
-      };
-      
-      fileReader.onerror = (error) => {
-        console.error("FileReader error:", error);
-        throw new Error("Failed to read the uploaded file.");
-      };
-
-    } catch (error) {
-      console.error("Failed to process certificate:", error);
+      setQrCodeUrl(qrCodeDataUrl);
       toast({
-        title: "An Error Occurred",
-        description: "Could not process your certificate. Please try again.",
-        variant: "destructive",
+        title: "QR Code Generated!",
+        description: "You can now position it on your certificate.",
       });
+    } catch (error) {
+        console.error("Failed to generate QR code:", error);
+        toast({
+          title: "QR Generation Failed",
+          description: "Could not generate the QR code. Please try again.",
+          variant: "destructive",
+        });
     } finally {
-      setIsProcessing(false);
+        setIsGenerating(false);
     }
   };
+  
+  const handleSaveAndDownload = async () => {
+      if (!certificateFile || !qrCodeUrl || !previewContainerRef.current) {
+          toast({
+              title: "Error",
+              description: "Missing certificate, QR code, or preview data.",
+              variant: "destructive",
+          });
+          return;
+      }
+      setIsProcessing(true);
+      toast({
+        title: "Processing Certificate...",
+        description: "Applying the QR code and preparing your download.",
+      });
+      
+      try {
+        const reader = new FileReader();
+        reader.readAsDataURL(certificateFile);
+        reader.onload = async () => {
+            const pdfBase64 = (reader.result as string).split(",")[1];
+            if (!pdfBase64) {
+                throw new Error("Failed to read the PDF file.");
+            }
 
+            const previewRect = previewContainerRef.current!.getBoundingClientRect();
+            
+            const newPdfBase64 = await applyQrToPdf({
+                pdfBase64,
+                qrCodeDataUrl: qrCodeUrl,
+                qrPosition: {
+                    x: qrPosition.x,
+                    y: qrPosition.y
+                },
+                qrSize: {
+                    width: qrSize,
+                    height: qrSize
+                },
+                previewSize: {
+                    width: previewRect.width,
+                    height: previewRect.height
+                }
+            });
+
+            const link = document.createElement("a");
+            link.href = `data:application/pdf;base64,${newPdfBase64}`;
+            link.download = `secured-${certificateFile.name}`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+
+            toast({
+                title: "Download Successful!",
+                description: "Your secured certificate has been downloaded.",
+            });
+        };
+        reader.onerror = () => { throw new Error("Could not read PDF file for final processing.") }
+      } catch (error) {
+          console.error("Failed to save and download:", error);
+          toast({
+              title: "Processing Failed",
+              description: "Could not apply the QR code to the PDF. Please try again.",
+              variant: "destructive",
+          });
+      } finally {
+          setIsProcessing(false);
+      }
+  }
+
+  useEffect(() => {
+    const handleMouseMove = (event: MouseEvent) => {
+      if (!qrRef.current || !previewContainerRef.current) return;
+
+      const containerRect = previewContainerRef.current.getBoundingClientRect();
+      let x = event.clientX - containerRect.left - qrSize / 2;
+      let y = event.clientY - containerRect.top - qrSize / 2;
+
+      // Constrain to bounds
+      x = Math.max(0, Math.min(x, containerRect.width - qrSize));
+      y = Math.max(0, Math.min(y, containerRect.height - qrSize));
+
+      setQrPosition({ x, y });
+    };
+
+    const handleMouseUp = () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+    };
+    
+    const handleMouseDown = (event: MouseEvent) => {
+      // Prevent drag if it's not the left mouse button
+      if(event.button !== 0) return;
+      
+      window.addEventListener('mousemove', handleMouseMove);
+      window.addEventListener('mouseup', handleMouseUp);
+    }
+    
+    const qrEl = qrRef.current;
+    if (qrEl) {
+      qrEl.addEventListener('mousedown', handleMouseDown as EventListener);
+    }
+    
+    return () => {
+      if(qrEl) {
+        qrEl.removeEventListener('mousedown', handleMouseDown as EventListener);
+      }
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [qrSize]);
 
   return (
     <Card className="w-full shadow-lg">
@@ -166,103 +277,105 @@ export default function ApplyQrCode() {
           Create Your Secured Certificate
         </CardTitle>
         <CardDescription>
-          Upload your certificate, fill in the details, and choose where to place the unique QR code.
+          Upload your certificate, fill in the details, and place the unique QR code.
         </CardDescription>
       </CardHeader>
       <Form {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit)} noValidate>
+        <form onSubmit={(e) => e.preventDefault()} noValidate>
           <CardContent className="space-y-6">
-            <div>
-              <FormItem>
-                  <FormLabel
-                  className={cn("font-semibold", fileError && "text-destructive")}
-                  htmlFor="certificate-upload"
-                  >
-                  Upload Certificate
-                  </FormLabel>
-                  <div className="relative">
-                  <FormControl>
-                      <Input
-                      id="certificate-upload"
-                      type="file"
-                      accept="application/pdf"
-                      className="hidden"
-                      onChange={handleFileChange}
-                      />
-                  </FormControl>
-                  <label
-                      htmlFor="certificate-upload"
-                      className={cn(
-                      "flex flex-col items-center justify-center w-full h-40 border-2 border-dashed rounded-lg cursor-pointer bg-background hover:bg-accent/10 transition-colors duration-200",
-                      fileError ? "border-destructive hover:bg-destructive/10" : "border-border",
-                      certificateFile && "border-green-500 bg-green-50"
-                      )}
-                  >
-                      <div 
-                      className="flex flex-col items-center justify-center pt-5 pb-6 text-center"
-                      >
-                      {certificateFile ? (
-                          <>
-                          <FileCheck2 className="w-10 h-10 mb-3 text-green-600" />
-                          <p className="mb-2 text-sm text-foreground">
-                              <span className="font-semibold">
-                              {certificateFile.name}
-                              </span>
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                              Click to replace file
-                          </p>
-                          </>
-                      ) : (
-                          <>
-                          <UploadCloud className="w-10 h-10 mb-3 text-muted-foreground" />
-                          <p className="mb-2 text-sm text-muted-foreground">
-                              <span className="font-semibold text-primary">Click to upload</span> or drag and drop
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                              PDF only (MAX. 5MB)
-                          </p>
-                          </>
-                      )}
-                      </div>
-                  </label>
-                  </div>
-                  {fileError && (
-                  <FormMessage className="flex items-center gap-1 pt-1">
-                      <AlertCircle size={14} />
-                      {fileError}
-                  </FormMessage>
-                  )}
-              </FormItem>
-            </div>
             <div className="grid md:grid-cols-2 gap-6">
-              <FormField
-                control={form.control}
-                name="companyName"
-                render={({ field }) => (
+                <div>
                   <FormItem>
-                    <FormLabel>Company Name</FormLabel>
-                    <FormControl>
-                      <Input placeholder="e.g. Secure-Cert Inc." {...field} />
-                    </FormControl>
-                    <FormMessage />
+                      <FormLabel
+                      className={cn("font-semibold", fileError && "text-destructive")}
+                      htmlFor="certificate-upload"
+                      >
+                      Upload Certificate
+                      </FormLabel>
+                      <div className="relative">
+                      <FormControl>
+                          <Input
+                          id="certificate-upload"
+                          type="file"
+                          accept="application/pdf"
+                          className="hidden"
+                          onChange={handleFileChange}
+                          />
+                      </FormControl>
+                      <label
+                          htmlFor="certificate-upload"
+                          className={cn(
+                          "flex flex-col items-center justify-center w-full h-40 border-2 border-dashed rounded-lg cursor-pointer bg-background hover:bg-accent/10 transition-colors duration-200",
+                          fileError ? "border-destructive hover:bg-destructive/10" : "border-border",
+                          certificateFile && "border-green-500 bg-green-50"
+                          )}
+                      >
+                          <div 
+                          className="flex flex-col items-center justify-center pt-5 pb-6 text-center"
+                          >
+                          {certificateFile ? (
+                              <>
+                              <FileCheck2 className="w-10 h-10 mb-3 text-green-600" />
+                              <p className="mb-2 text-sm text-foreground">
+                                  <span className="font-semibold">
+                                  {certificateFile.name}
+                                  </span>
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                  Click to replace file
+                              </p>
+                              </>
+                          ) : (
+                              <>
+                              <UploadCloud className="w-10 h-10 mb-3 text-muted-foreground" />
+                              <p className="mb-2 text-sm text-muted-foreground">
+                                  <span className="font-semibold text-primary">Click to upload</span> or drag and drop
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                  PDF only (MAX. 5MB)
+                              </p>
+                              </>
+                          )}
+                          </div>
+                      </label>
+                      </div>
+                      {fileError && (
+                      <FormMessage className="flex items-center gap-1 pt-1">
+                          <AlertCircle size={14} />
+                          {fileError}
+                      </FormMessage>
+                      )}
                   </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="companyId"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Company ID</FormLabel>
-                    <FormControl>
-                      <Input placeholder="e.g. C-12345" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
+                </div>
+                <div className="space-y-4">
+                  <FormField
+                    control={form.control}
+                    name="companyName"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Company Name</FormLabel>
+                        <FormControl>
+                          <Input placeholder="e.g. Secure-Cert Inc." {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="companyId"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Company ID</FormLabel>
+                        <FormControl>
+                          <Input placeholder="e.g. C-12345" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+                 <FormField
                 control={form.control}
                 name="workId"
                 render={({ field }) => (
@@ -317,97 +430,122 @@ export default function ApplyQrCode() {
               />
             </div>
 
-            <div className="space-y-4 pt-4 border-t">
-               <FormField
-                  control={form.control}
-                  name="qrPosition"
-                  render={({ field }) => (
-                    <FormItem className="space-y-3">
-                      <FormLabel className="font-semibold">QR Code Position</FormLabel>
-                      <FormControl>
-                        <RadioGroup
-                          onValueChange={field.onChange}
-                          defaultValue={field.value}
-                          className="grid grid-cols-2 md:grid-cols-4 gap-4"
-                        >
-                          <FormItem className="flex items-center space-x-3 space-y-0">
-                            <FormControl>
-                                <RadioGroupItem value="bottom-right" id="br" className="peer sr-only" />
-                            </FormControl>
-                            <Label htmlFor="br" className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary w-full cursor-pointer">
-                                <span className="text-sm font-semibold">Bottom Right</span>
-                            </Label>
-                          </FormItem>
-                           <FormItem className="flex items-center space-x-3 space-y-0">
-                            <FormControl>
-                                <RadioGroupItem value="bottom-left" id="bl" className="peer sr-only" />
-                            </FormControl>
-                            <Label htmlFor="bl" className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary w-full cursor-pointer">
-                                <span className="text-sm font-semibold">Bottom Left</span>
-                            </Label>
-                          </FormItem>
-                           <FormItem className="flex items-center space-x-3 space-y-0">
-                            <FormControl>
-                                <RadioGroupItem value="top-right" id="tr" className="peer sr-only" />
-                            </FormControl>
-                            <Label htmlFor="tr" className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary w-full cursor-pointer">
-                                <span className="text-sm font-semibold">Top Right</span>
-                            </Label>
-                          </FormItem>
-                           <FormItem className="flex items-center space-x-3 space-y-0">
-                            <FormControl>
-                                <RadioGroupItem value="top-left" id="tl" className="peer sr-only" />
-                            </FormControl>
-                            <Label htmlFor="tl" className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary w-full cursor-pointer">
-                                <span className="text-sm font-semibold">Top Left</span>
-                            </Label>
-                          </FormItem>
-                        </RadioGroup>
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              <FormField
-                control={form.control}
-                name="qrSize"
-                render={({ field }) => (
-                  <FormItem>
-                    <Label htmlFor="qr-size" className="flex items-center gap-2 font-semibold">
-                      <ZoomIn className="w-5 h-5" />
-                      Adjust QR Code Size
-                    </Label>
-                    <div className="flex items-center gap-4">
-                      <FormControl>
-                        <Slider
-                            id="qr-size"
-                            min={50}
-                            max={250}
-                            step={10}
-                            value={[field.value]}
-                            onValueChange={(value) => field.onChange(value[0])}
-                          />
-                      </FormControl>
-                      <span className="text-sm font-medium tabular-nums w-16 text-center border rounded-md py-1">
-                        {field.value}px
-                      </span>
-                    </div>
-                     <FormMessage />
-                  </FormItem>
+            <AnimatePresence>
+            {certificateFile && !qrCodeUrl && (
+              <motion.div
+                className="pt-4 border-t"
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                exit={{ opacity: 0, height: 0 }}
+              >
+                  <Button onClick={handleGenerateQr} disabled={isGenerating} className="w-full text-lg h-12">
+                      {isGenerating ? (
+                        <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                      ) : (
+                        <Scan className="mr-2 h-5 w-5" />
+                      )}
+                      Generate QR Code
+                  </Button>
+              </motion.div>
+            )}
+            </AnimatePresence>
+
+            <AnimatePresence>
+                {pdfPreviewUrl && qrCodeUrl && (
+                    <motion.div
+                        className="space-y-6 pt-4 border-t"
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                    >
+                        <div className="space-y-2 text-center">
+                            <h3 className="text-xl font-semibold font-headline">Position Your QR Code</h3>
+                            <p className="text-muted-foreground">Drag the QR code to your desired position on the certificate preview.</p>
+                        </div>
+                        <div className="grid md:grid-cols-3 gap-6 items-start">
+                            <div className="md:col-span-2 relative w-full border-2 border-dashed rounded-lg p-2" ref={previewContainerRef}>
+                                <img src={pdfPreviewUrl} alt="Certificate Preview" className="w-full h-auto" />
+                                <motion.img
+                                    ref={qrRef}
+                                    src={qrCodeUrl}
+                                    alt="QR Code"
+                                    className="absolute cursor-move"
+                                    style={{
+                                        width: `${qrSize}px`,
+                                        height: `${qrSize}px`,
+                                        touchAction: 'none'
+                                    }}
+                                    animate={{
+                                        x: qrPosition.x,
+                                        y: qrPosition.y,
+                                        width: qrSize,
+                                        height: qrSize
+                                    }}
+                                    dragMomentum={false}
+                                />
+                            </div>
+                            <div className="space-y-6">
+                                <div className="space-y-2">
+                                  <Label htmlFor="qr-size" className="flex items-center gap-2 font-semibold">
+                                    <ZoomIn className="w-5 h-5" />
+                                    Adjust QR Code Size
+                                  </Label>
+                                  <div className="flex items-center gap-4">
+                                    <Slider
+                                      id="qr-size"
+                                      min={50}
+                                      max={250}
+                                      step={10}
+                                      value={[qrSize]}
+                                      onValueChange={(value) => setQrSize(value[0])}
+                                    />
+                                    <span className="text-sm font-medium tabular-nums w-16 text-center border rounded-md py-1">
+                                      {qrSize}px
+                                    </span>
+                                  </div>
+                                </div>
+                                <div className="space-y-2">
+                                  <Label className="flex items-center gap-2 font-semibold">
+                                    <Move className="w-5 h-5" />
+                                    Position
+                                  </Label>
+                                   <div className="flex items-center gap-4 text-sm p-2 border rounded-md bg-muted/50">
+                                      <span>X: {Math.round(qrPosition.x)}px</span>
+                                      <span>Y: {Math.round(qrPosition.y)}px</span>
+                                   </div>
+                                </div>
+                            </div>
+                        </div>
+                    </motion.div>
                 )}
-              />
-            </div>
+                 {(isGenerating && !pdfPreviewUrl) && (
+                    <div className="mt-8 flex flex-col items-center justify-center text-muted-foreground">
+                        <Loader2 className="w-10 h-10 animate-spin text-primary mb-4" />
+                        <p className="font-semibold">Generating Preview...</p>
+                        <p className="text-sm">Please wait a moment.</p>
+                    </div>
+                )}
+            </AnimatePresence>
           </CardContent>
-          <CardFooter className="px-6 pb-6 pt-4 bg-muted/30">
-            <Button type="submit" className="w-full text-lg h-12 group" disabled={isProcessing || !certificateFile}>
-              {isProcessing ? (
-                <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-              ) : (
-                <Download className="mr-2 h-5 w-5" />
-              )}
-              Apply QR & Download
-            </Button>
-          </CardFooter>
+          <AnimatePresence>
+          {pdfPreviewUrl && qrCodeUrl && (
+             <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+             >
+                <CardFooter className="px-6 pb-6 pt-4 bg-muted/30">
+                    <Button onClick={handleSaveAndDownload} className="w-full text-lg h-12 group" disabled={isProcessing}>
+                    {isProcessing ? (
+                        <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                    ) : (
+                        <Download className="mr-2 h-5 w-5" />
+                    )}
+                    Save & Download
+                    </Button>
+                </CardFooter>
+            </motion.div>
+          )}
+          </AnimatePresence>
         </form>
       </Form>
     </Card>
