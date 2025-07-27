@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { format } from "date-fns";
 import {
   Search,
@@ -12,7 +12,10 @@ import {
   Building,
   Briefcase,
   AlertTriangle,
+  ShieldCheck,
+  ShieldX,
 } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -22,12 +25,11 @@ import {
   CardDescription,
   CardHeader,
   CardTitle,
-  CardFooter,
 } from "@/components/ui/card";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Separator } from "@/components/ui/separator";
 
-type Certificate = {
+export type Certificate = {
   workId: string;
   companyName: string;
   companyId: string;
@@ -60,33 +62,48 @@ const MOCK_CERTIFICATES: Certificate[] = [
   },
 ];
 
-export default function Verification() {
-  const [searchQuery, setSearchQuery] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
+type VerificationProps = {
+  workId?: string;
+};
+
+export default function Verification({ workId }: VerificationProps) {
+  const [searchQuery, setSearchQuery] = useState(workId || "");
+  const [isLoading, setIsLoading] = useState(!!workId);
   const [searchResult, setSearchResult] = useState<
     Certificate | "not_found" | null
   >(null);
 
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!searchQuery) return;
+  const performSearch = (query: string) => {
+    if (!query) return;
     setIsLoading(true);
     setSearchResult(null);
 
     // Simulate API call
     setTimeout(() => {
-      const result = MOCK_CERTIFICATES.find((cert) => cert.workId.toLowerCase() === searchQuery.toLowerCase());
+      const result = MOCK_CERTIFICATES.find((cert) => cert.workId.toLowerCase() === query.toLowerCase());
       setSearchResult(result || "not_found");
       setIsLoading(false);
     }, 1000);
+  };
+  
+  useEffect(() => {
+    if (workId) {
+      performSearch(workId);
+    }
+  }, [workId]);
+
+
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    performSearch(searchQuery);
   };
 
   const isExpired = searchResult && typeof searchResult !== 'string' && searchResult.expiryDate < new Date();
 
   return (
-    <Card className="w-full shadow-lg">
+    <Card className="w-full shadow-lg border-primary/20">
       <CardHeader>
-        <CardTitle className="font-headline text-2xl">
+        <CardTitle className="font-headline text-2xl text-primary">
           Verify a Certificate
         </CardTitle>
         <CardDescription>
@@ -103,20 +120,43 @@ export default function Verification() {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="flex-grow"
+              disabled={!!workId}
             />
-            <Button type="submit" disabled={isLoading}>
-              {isLoading ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : (
-                <Search className="mr-2 h-4 w-4" />
-              )}
-              Search
-            </Button>
+            {!workId && (
+              <Button type="submit" disabled={isLoading}>
+                {isLoading ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Search className="mr-2 h-4 w-4" />
+                )}
+                Search
+              </Button>
+            )}
           </div>
         </form>
 
-        {searchResult && (
-          <div className="mt-6">
+        <AnimatePresence>
+          {isLoading && (
+             <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: 'auto', opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              className="mt-6 flex flex-col items-center justify-center text-muted-foreground"
+            >
+              <Loader2 className="w-10 h-10 animate-spin text-primary mb-4" />
+              <p className="font-semibold">Verifying Certificate...</p>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        <AnimatePresence>
+        {searchResult && !isLoading && (
+          <motion.div 
+            className="mt-6"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.2 }}
+          >
             <Separator className="my-4" />
             {searchResult === "not_found" ? (
               <Alert variant="destructive">
@@ -129,19 +169,29 @@ export default function Verification() {
               </Alert>
             ) : (
               <div>
-                <h3 className="text-xl font-semibold font-headline mb-4">
-                  Verification Result
-                </h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                <motion.div
+                  className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm mb-6"
+                  variants={{
+                    hidden: { opacity: 0 },
+                    show: {
+                      opacity: 1,
+                      transition: {
+                        staggerChildren: 0.1,
+                      },
+                    },
+                  }}
+                  initial="hidden"
+                  animate="show"
+                >
                   <InfoItem icon={Fingerprint} label="Work ID" value={searchResult.workId} />
                   <InfoItem icon={Building} label="Company Name" value={searchResult.companyName} />
                   <InfoItem icon={Briefcase} label="Company ID" value={searchResult.companyId} />
                   <InfoItem icon={CalendarClock} label="Expiry Date" value={format(searchResult.expiryDate, "PPP")} />
-                </div>
+                </motion.div>
 
                 <Alert className="mt-6" variant={isExpired ? "destructive" : "default"}>
-                  {isExpired ? <FileX className="h-4 w-4" /> : <FileCheck className="h-4 w-4" />}
-                  <AlertTitle className="font-bold">
+                  {isExpired ? <ShieldX className="h-5 w-5" /> : <ShieldCheck className="h-5 w-5" />}
+                  <AlertTitle className="font-bold text-lg">
                     {isExpired ? "Certificate Expired" : "Certificate Valid"}
                   </AlertTitle>
                   <AlertDescription>
@@ -153,7 +203,7 @@ export default function Verification() {
                 
                 {!isExpired && (
                   <div className="mt-6">
-                    <h4 className="font-semibold mb-2">Certificate Document:</h4>
+                    <h4 className="font-semibold mb-2 text-primary">Certificate Document:</h4>
                      <div className="w-full h-[40rem] border-2 border-dashed rounded-lg flex items-center justify-center bg-muted/30">
                         <p className="text-muted-foreground">Certificate preview would be displayed here.</p>
                     </div>
@@ -161,21 +211,30 @@ export default function Verification() {
                 )}
               </div>
             )}
-          </div>
+          </motion.div>
         )}
+        </AnimatePresence>
       </CardContent>
     </Card>
   );
 }
 
+const itemVariants = {
+  hidden: { y: 20, opacity: 0 },
+  show: { y: 0, opacity: 1 },
+};
+
 function InfoItem({ icon: Icon, label, value }: { icon: React.ElementType, label: string, value: string }) {
   return (
-    <div className="flex items-start gap-3 p-3 bg-muted/50 rounded-lg">
+    <motion.div 
+      className="flex items-start gap-3 p-3 bg-background border rounded-lg shadow-sm"
+      variants={itemVariants}
+    >
       <Icon className="h-5 w-5 mt-1 text-primary flex-shrink-0" />
       <div>
         <p className="font-semibold text-muted-foreground">{label}</p>
         <p className="font-medium text-foreground">{value}</p>
       </div>
-    </div>
+    </motion.div>
   )
 }

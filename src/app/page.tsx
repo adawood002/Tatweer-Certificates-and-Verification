@@ -16,14 +16,14 @@ export default function Home() {
         </header>
 
         <Tabs defaultValue="apply-qr" className="w-full">
-          <TabsList className="grid w-full grid-cols-2 h-12 rounded-lg">
+          <TabsList className="grid w-full grid-cols-2 h-12 rounded-lg bg-primary/10">
             <TabsTrigger value="apply-qr" className="text-base font-semibold">Apply QR Code</TabsTrigger>
             <TabsTrigger value="verification" className="text-base font-semibold">Verification</TabsTrigger>
           </TabsList>
-          <TabsContent value="apply-qr">
+          <TabsContent value="apply-qr" className="mt-6">
             <ApplyQrCode />
           </TabsContent>
-          <TabsContent value="verification">
+          <TabsContent value="verification" className="mt-6">
             <Verification />
           </TabsContent>
         </Tabs>
