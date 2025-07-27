@@ -62,7 +62,7 @@ const applyQrToPdfFlow = ai.defineFlow(
       
       const x = qrPosition.x * scaleX;
       // Invert Y-axis: PDF origin is bottom-left, screen is top-left
-      const y = (previewSize.height - qrPosition.y - qrSize.height) * scaleY;
+      const y = pagePdfHeight - (qrPosition.y * scaleY) - qrPdfHeight;
 
       firstPage.drawImage(qrImage, {
         x: x,

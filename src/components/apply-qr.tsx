@@ -6,6 +6,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { format } from "date-fns";
 import { motion, AnimatePresence } from "framer-motion";
+import * as pdfjs from 'pdfjs-dist/legacy/build/pdf';
 
 import {
   CalendarIcon,
@@ -48,9 +49,11 @@ import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { generateQrCode } from "@/ai/flows/generate-qr-code";
 import { applyQrToPdf } from "@/ai/flows/apply-qr-to-pdf";
-import { generatePdfPreview } from "@/ai/flows/generate-pdf-preview";
 import { Slider } from "@/components/ui/slider";
 import { Label } from "@/components/ui/label";
+
+pdfjs.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.mjs`;
+
 
 const formSchema = z.object({
   companyName: z.string().min(2, "Company name must be at least 2 characters."),
@@ -92,22 +95,35 @@ export default function ApplyQrCode() {
       if (file.type === "application/pdf" && file.size <= 5 * 1024 * 1024) {
         setCertificateFile(file);
         setFileError(null);
-        setPdfPreviewUrl(null); // Reset previous preview
+        setPdfPreviewUrl(null);
         setIsGenerating(true);
 
         try {
-          const reader = new FileReader();
-          reader.readAsDataURL(file);
-          reader.onload = async () => {
-            const pdfBase64 = (reader.result as string).split(",")[1];
-            if (pdfBase64) {
-              const previewDataUrl = await generatePdfPreview({ pdfBase64 });
-              setPdfPreviewUrl(previewDataUrl);
+          const fileReader = new FileReader();
+          fileReader.readAsArrayBuffer(file);
+          fileReader.onload = async (e) => {
+            const pdfData = e.target?.result;
+            if (pdfData instanceof ArrayBuffer) {
+              const loadingTask = pdfjs.getDocument({ data: pdfData });
+              const doc = await loadingTask.promise;
+              const page = await doc.getPage(1);
+              const viewport = page.getViewport({ scale: 1.5 });
+              
+              const canvas = document.createElement('canvas');
+              const context = canvas.getContext('2d');
+              canvas.height = viewport.height;
+              canvas.width = viewport.width;
+
+              if (context) {
+                 const renderContext = {
+                    canvasContext: context,
+                    viewport: viewport,
+                  };
+                  await page.render(renderContext).promise;
+                  setPdfPreviewUrl(canvas.toDataURL('image/png'));
+              }
             }
           };
-          reader.onerror = () => {
-             throw new Error("Failed to read the PDF file.");
-          }
         } catch (error) {
             console.error("Failed to generate preview:", error);
             setFileError("Could not generate a preview for this PDF.");
@@ -229,14 +245,20 @@ export default function ApplyQrCode() {
   }
 
   useEffect(() => {
+    let isDragging = false;
+    
+    const handleMouseDown = (event: MouseEvent) => {
+      if(event.button !== 0 || !qrRef.current?.contains(event.target as Node)) return;
+      isDragging = true;
+    }
+
     const handleMouseMove = (event: MouseEvent) => {
-      if (!qrRef.current || !previewContainerRef.current) return;
+      if (!isDragging || !qrRef.current || !previewContainerRef.current) return;
 
       const containerRect = previewContainerRef.current.getBoundingClientRect();
       let x = event.clientX - containerRect.left - qrSize / 2;
       let y = event.clientY - containerRect.top - qrSize / 2;
-
-      // Constrain to bounds
+      
       x = Math.max(0, Math.min(x, containerRect.width - qrSize));
       y = Math.max(0, Math.min(y, containerRect.height - qrSize));
 
@@ -244,27 +266,15 @@ export default function ApplyQrCode() {
     };
 
     const handleMouseUp = () => {
-      window.removeEventListener('mousemove', handleMouseMove);
-      window.removeEventListener('mouseup', handleMouseUp);
+      isDragging = false;
     };
     
-    const handleMouseDown = (event: MouseEvent) => {
-      // Prevent drag if it's not the left mouse button
-      if(event.button !== 0) return;
-      
-      window.addEventListener('mousemove', handleMouseMove);
-      window.addEventListener('mouseup', handleMouseUp);
-    }
-    
-    const qrEl = qrRef.current;
-    if (qrEl) {
-      qrEl.addEventListener('mousedown', handleMouseDown as EventListener);
-    }
+    window.addEventListener('mousedown', handleMouseDown as EventListener);
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseup', handleMouseUp);
     
     return () => {
-      if(qrEl) {
-        qrEl.removeEventListener('mousedown', handleMouseDown as EventListener);
-      }
+      window.removeEventListener('mousedown', handleMouseDown as EventListener);
       window.removeEventListener('mousemove', handleMouseMove);
       window.removeEventListener('mouseup', handleMouseUp);
     };
