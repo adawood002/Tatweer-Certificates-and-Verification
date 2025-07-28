@@ -18,6 +18,7 @@ import {
   ZoomIn,
   Move,
   Scan,
+  Save,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -49,7 +50,7 @@ import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { generateQrCode } from "@/ai/flows/generate-qr-code";
 import { applyQrToPdf } from "@/ai/flows/apply-qr-to-pdf";
-import { addCertificate } from "@/lib/firebase";
+import { addCertificate, uploadCertificatePdf } from "@/lib/firebase";
 import { Slider } from "@/components/ui/slider";
 import { Label } from "@/components/ui/label";
 
@@ -61,16 +62,21 @@ const formSchema = z.object({
 });
 
 type FormValues = z.infer<typeof formSchema>;
+type Step = 'apply' | 'save' | 'download' | 'idle';
+
 
 export default function ApplyQrCode() {
   const { toast } = useToast();
   const [certificateFile, setCertificateFile] = useState<File | null>(null);
   const [fileError, setFileError] = useState<string | null>(null);
-  const [isProcessing, setIsProcessing] = useState(false);
   
   const [pdfPreviewUrl, setPdfPreviewUrl] = useState<string | null>(null);
+  const [modifiedPdfData, setModifiedPdfData] = useState<string | null>(null);
   const [qrCodeUrl, setQrCodeUrl] = useState<string | null>(null);
-  const [isGenerating, setIsGenerating] = useState(false);
+  
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [currentStep, setCurrentStep] = useState<Step>('idle');
+
 
   const qrPosition = useRef({ x: 10, y: 10 });
   const [qrSize, setQrSize] = useState(120);
@@ -109,7 +115,10 @@ export default function ApplyQrCode() {
         setCertificateFile(file);
         setFileError(null);
         setPdfPreviewUrl(null);
-        setIsGenerating(true);
+        setQrCodeUrl(null);
+        setModifiedPdfData(null);
+        setCurrentStep('idle');
+        setIsProcessing(true);
 
         if (!pdfjsRef.current) {
             toast({
@@ -117,7 +126,7 @@ export default function ApplyQrCode() {
                 description: "Please wait a moment for the PDF library to load and try again.",
                 variant: "destructive"
             });
-            setIsGenerating(false);
+            setIsProcessing(false);
             return;
         }
 
@@ -152,7 +161,7 @@ export default function ApplyQrCode() {
             setFileError("Could not generate a preview for this PDF.");
             setCertificateFile(null);
         } finally {
-            setIsGenerating(false);
+            setIsProcessing(false);
         }
 
       } else {
@@ -176,7 +185,7 @@ export default function ApplyQrCode() {
       return;
     }
 
-    setIsGenerating(true);
+    setIsProcessing(true);
     toast({
       title: "Generating QR Code...",
     });
@@ -185,6 +194,7 @@ export default function ApplyQrCode() {
       const verificationUrl = `${window.location.origin}/verify/${encodeURIComponent(certificateId)}`;
       const qrCodeDataUrl = await generateQrCode(verificationUrl);
       setQrCodeUrl(qrCodeDataUrl);
+      setCurrentStep('apply');
       toast({
         title: "QR Code Generated!",
         description: "You can now position it on your certificate.",
@@ -197,81 +207,101 @@ export default function ApplyQrCode() {
           variant: "destructive",
         });
     } finally {
-        setIsGenerating(false);
+        setIsProcessing(false);
     }
   };
   
-  const handleSaveAndDownload = async () => {
-      const isFormValid = await form.trigger();
-      if (!isFormValid || !certificateFile || !qrCodeUrl || !previewContainerRef.current) {
-          toast({
-              title: "Error",
-              description: "Please fill all fields and generate a QR code first.",
-              variant: "destructive",
-          });
-          return;
-      }
-      setIsProcessing(true);
-      toast({
-        title: "Processing Certificate...",
-        description: "Applying QR, saving data, and preparing download.",
-      });
-      
-      try {
-        const certificateData = form.getValues();
-        await addCertificate(certificateData);
-
+  const handleApplyQr = async () => {
+    const isFormValid = await form.trigger();
+    if (!isFormValid || !certificateFile || !qrCodeUrl || !previewContainerRef.current) {
+        toast({
+            title: "Error",
+            description: "Please fill all fields and generate a QR code first.",
+            variant: "destructive",
+        });
+        return;
+    }
+    setIsProcessing(true);
+    toast({ title: "Applying QR code..." });
+    
+    try {
         const reader = new FileReader();
         reader.readAsDataURL(certificateFile);
         reader.onload = async () => {
             const pdfBase64 = (reader.result as string).split(",")[1];
-            if (!pdfBase64) {
-                throw new Error("Failed to read the PDF file.");
-            }
+            if (!pdfBase64) throw new Error("Failed to read the PDF file.");
 
             const previewRect = previewContainerRef.current!.getBoundingClientRect();
             
             const newPdfBase64 = await applyQrToPdf({
                 pdfBase64,
                 qrCodeDataUrl: qrCodeUrl,
-                qrPosition: {
-                    x: qrPosition.current.x,
-                    y: qrPosition.current.y,
-                },
-                qrSize: {
-                    width: qrSize,
-                    height: qrSize
-                },
-                previewSize: {
-                    width: previewRect.width,
-                    height: previewRect.height
-                }
+                qrPosition: { x: qrPosition.current.x, y: qrPosition.current.y },
+                qrSize: { width: qrSize, height: qrSize },
+                previewSize: { width: previewRect.width, height: previewRect.height }
             });
 
-            const link = document.createElement("a");
-            link.href = `data:application/pdf;base64,${newPdfBase64}`;
-            link.download = `secured-${certificateFile.name}`;
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-
-            toast({
-                title: "Download Successful!",
-                description: "Your secured certificate has been downloaded.",
-            });
+            setModifiedPdfData(newPdfBase64);
+            setCurrentStep('save');
+            toast({ title: "QR Code Applied Successfully", description: "You can now save the certificate." });
         };
-        reader.onerror = () => { throw new Error("Could not read PDF file for final processing.") }
-      } catch (error) {
-          console.error("Failed to save and download:", error);
-          const errorMessage = error instanceof Error ? error.message : "An unknown error occurred.";
-          toast({
-              title: "Processing Failed",
-              description: `Could not save or process the certificate. ${errorMessage}`,
-              variant: "destructive",
-          });
-      } finally {
-          setIsProcessing(false);
-      }
+        reader.onerror = () => { throw new Error("Could not read PDF file for processing.") }
+    } catch (error) {
+        console.error("Failed to apply QR:", error);
+        toast({ title: "Applying QR Failed", description: "Could not apply the QR code.", variant: "destructive" });
+    } finally {
+        setIsProcessing(false);
+    }
+  }
+
+  const handleSaveChanges = async () => {
+    if (!modifiedPdfData || !certificateFile) {
+        toast({ title: "Error", description: "No modified PDF to save.", variant: "destructive" });
+        return;
+    }
+    setIsProcessing(true);
+    toast({ title: "Saving Certificate...", description: "Uploading file and saving data." });
+
+    try {
+        // Convert base64 to blob
+        const byteCharacters = atob(modifiedPdfData);
+        const byteNumbers = new Array(byteCharacters.length);
+        for (let i = 0; i < byteCharacters.length; i++) {
+            byteNumbers[i] = byteCharacters.charCodeAt(i);
+        }
+        const byteArray = new Uint8Array(byteNumbers);
+        const pdfBlob = new Blob([byteArray], {type: 'application/pdf'});
+
+        // Upload to Firebase Storage
+        const downloadURL = await uploadCertificatePdf(pdfBlob, `stamped-${certificateFile.name}`);
+        
+        // Save metadata to Firestore
+        const certificateData = form.getValues();
+        await addCertificate(certificateData, downloadURL);
+
+        setCurrentStep('download');
+        toast({ title: "Certificate Saved!", description: "Your certificate has been securely saved." });
+    } catch (error) {
+        console.error("Failed to save certificate:", error);
+        const errorMessage = error instanceof Error ? error.message : "An unknown error occurred.";
+        toast({ title: "Save Failed", description: errorMessage, variant: "destructive" });
+    } finally {
+        setIsProcessing(false);
+    }
+  }
+
+  const handleDownload = () => {
+    if (!modifiedPdfData || !certificateFile) {
+        toast({ title: "Error", description: "No file to download.", variant: "destructive" });
+        return;
+    }
+    const link = document.createElement("a");
+    link.href = `data:application/pdf;base64,${modifiedPdfData}`;
+    link.download = `stamped-${certificateFile.name}`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    toast({ title: "Download Started", description: "Your secured certificate is downloading." });
   }
 
   const handleMouseDown = (e: React.MouseEvent<HTMLImageElement>) => {
@@ -310,6 +340,34 @@ export default function ApplyQrCode() {
     document.addEventListener('mouseup', handleMouseUp);
   };
 
+
+  const getActionButon = () => {
+    switch (currentStep) {
+        case 'apply':
+            return (
+                <Button onClick={handleApplyQr} className="w-full text-lg h-12" disabled={isProcessing}>
+                    {isProcessing ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <Scan className="mr-2 h-5 w-5" />}
+                    Apply QR Code
+                </Button>
+            );
+        case 'save':
+            return (
+                <Button onClick={handleSaveChanges} className="w-full text-lg h-12" disabled={isProcessing}>
+                    {isProcessing ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <Save className="mr-2 h-5 w-5" />}
+                    Save Certificate
+                </Button>
+            );
+        case 'download':
+            return (
+                <Button onClick={handleDownload} className="w-full text-lg h-12" disabled={isProcessing}>
+                    <Download className="mr-2 h-5 w-5" />
+                    Download Secured PDF
+                </Button>
+            );
+        default:
+             return null;
+    }
+  }
 
   return (
     <Card className="w-full shadow-lg">
@@ -472,15 +530,15 @@ export default function ApplyQrCode() {
             </div>
 
             <AnimatePresence>
-            {certificateFile && !qrCodeUrl && (
+            {certificateFile && !qrCodeUrl && currentStep === 'idle' && (
               <motion.div
                 className="pt-4 border-t"
                 initial={{ opacity: 0, height: 0 }}
                 animate={{ opacity: 1, height: 'auto' }}
                 exit={{ opacity: 0, height: 0 }}
               >
-                  <Button onClick={handleGenerateQr} disabled={isGenerating} className="w-full text-lg h-12">
-                      {isGenerating ? (
+                  <Button onClick={handleGenerateQr} disabled={isProcessing} className="w-full text-lg h-12">
+                      {isProcessing ? (
                         <Loader2 className="mr-2 h-5 w-5 animate-spin" />
                       ) : (
                         <Scan className="mr-2 h-5 w-5" />
@@ -554,7 +612,7 @@ export default function ApplyQrCode() {
                         </div>
                     </motion.div>
                 )}
-                 {(isGenerating && !pdfPreviewUrl) && (
+                 {(isProcessing && !pdfPreviewUrl) && (
                     <div className="mt-8 flex flex-col items-center justify-center text-muted-foreground">
                         <Loader2 className="w-10 h-10 animate-spin text-primary mb-4" />
                         <p className="font-semibold">Generating Preview...</p>
@@ -564,21 +622,14 @@ export default function ApplyQrCode() {
             </AnimatePresence>
           </CardContent>
           <AnimatePresence>
-          {pdfPreviewUrl && qrCodeUrl && (
+          {currentStep !== 'idle' && (
              <motion.div
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -10 }}
              >
                 <CardFooter className="px-6 pb-6 pt-4 bg-muted/30">
-                    <Button onClick={handleSaveAndDownload} className="w-full text-lg h-12 group" disabled={isProcessing}>
-                    {isProcessing ? (
-                        <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                    ) : (
-                        <Download className="mr-2 h-5 w-5" />
-                    )}
-                    Save & Download
-                    </Button>
+                    {getActionButon()}
                 </CardFooter>
             </motion.div>
           )}
@@ -588,5 +639,3 @@ export default function ApplyQrCode() {
     </Card>
   );
 }
-
-    
