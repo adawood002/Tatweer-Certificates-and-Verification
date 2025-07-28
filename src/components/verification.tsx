@@ -28,6 +28,7 @@ import {
 } from "@/components/ui/card";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Separator } from "@/components/ui/separator";
+import { getCertificateById } from "@/lib/firebase";
 
 export type Certificate = {
   certificateId: string;
@@ -36,31 +37,6 @@ export type Certificate = {
   expiryDate: Date;
   pdfUrl: string;
 };
-
-// Mock data to simulate a database of certificates
-const MOCK_CERTIFICATES: Certificate[] = [
-  {
-    certificateId: "CERT-12345",
-    jobId: "JOB-67890",
-    companyName: "Innovatech Solutions",
-    expiryDate: new Date("2025-12-31T23:59:59"),
-    pdfUrl: "/certs/innovatech-cert.pdf",
-  },
-  {
-    certificateId: "CERT-67890",
-    jobId: "JOB-11223",
-    companyName: "Global Trust Services",
-    expiryDate: new Date("2023-01-15T23:59:59"), // Expired
-    pdfUrl: "/certs/globaltrust-cert.pdf",
-  },
-  {
-    certificateId: "CERT-ABCDE",
-    jobId: "JOB-FGHIJ",
-    companyName: "Quantum Leap Inc.",
-    expiryDate: new Date(new Date().getTime() + 100 * 24 * 60 * 60 * 1000), // Expires in 100 days
-    pdfUrl: "/certs/quantum-cert.pdf",
-  },
-];
 
 type VerificationProps = {
   certificateId?: string;
@@ -72,18 +48,24 @@ export default function Verification({ certificateId }: VerificationProps) {
   const [searchResult, setSearchResult] = useState<
     Certificate | "not_found" | null
   >(null);
+    const [error, setError] = useState<string | null>(null);
 
-  const performSearch = (query: string) => {
+
+  const performSearch = async (query: string) => {
     if (!query) return;
     setIsLoading(true);
     setSearchResult(null);
+    setError(null);
 
-    // Simulate API call
-    setTimeout(() => {
-      const result = MOCK_CERTIFICATES.find((cert) => cert.certificateId.toLowerCase() === query.toLowerCase());
+    try {
+      const result = await getCertificateById(query);
       setSearchResult(result || "not_found");
-      setIsLoading(false);
-    }, 1000);
+    } catch (err) {
+        setError("An error occurred while fetching the certificate. Please try again later.");
+        console.error(err);
+    } finally {
+        setIsLoading(false);
+    }
   };
   
   useEffect(() => {
@@ -133,6 +115,13 @@ export default function Verification({ certificateId }: VerificationProps) {
             )}
           </div>
         </form>
+         {error && (
+            <Alert variant="destructive" className="mt-6">
+                <AlertTriangle className="h-4 w-4" />
+                <AlertTitle>Error</AlertTitle>
+                <AlertDescription>{error}</AlertDescription>
+            </Alert>
+        )}
 
         <AnimatePresence>
           {isLoading && (
@@ -173,69 +162,4 @@ export default function Verification({ certificateId }: VerificationProps) {
                   {isExpired ? <ShieldX className="h-5 w-5" /> : <ShieldCheck className="h-5 w-5" />}
                   <AlertTitle className="font-bold text-lg">
                     {isExpired ? "Certificate Expired" : "Certificate Valid"}
-                  </AlertTitle>
-                  <AlertDescription>
-                    {isExpired
-                      ? `This certificate expired on ${format(searchResult.expiryDate, "PPP")}.`
-                      : `This certificate is valid and will expire on ${format(searchResult.expiryDate, "PPP")}.`}
-                  </AlertDescription>
-                </Alert>
-
-                <motion.div
-                  className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm"
-                  variants={{
-                    hidden: { opacity: 0 },
-                    show: {
-                      opacity: 1,
-                      transition: {
-                        staggerChildren: 0.1,
-                      },
-                    },
-                  }}
-                  initial="hidden"
-                  animate="show"
-                >
-                  <InfoItem icon={Fingerprint} label="Certificate ID" value={searchResult.certificateId} />
-                  <InfoItem icon={Briefcase} label="Job ID" value={searchResult.jobId} />
-                  <InfoItem icon={Building} label="Company Name" value={searchResult.companyName} />
-                  <InfoItem icon={CalendarClock} label="Expiry Date" value={format(searchResult.expiryDate, "PPP")} />
-                </motion.div>
-                
-                {!isExpired && (
-                  <div className="mt-6">
-                    <h4 className="font-semibold mb-2 text-foreground">Certificate Document:</h4>
-                     <div className="w-full h-[40rem] border rounded-lg flex items-center justify-center bg-muted/30">
-                        <p className="text-muted-foreground">Certificate preview would be displayed here.</p>
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-          </motion.div>
-        )}
-        </AnimatePresence>
-      </CardContent>
-    </Card>
-  );
-}
-
-const itemVariants = {
-  hidden: { y: 10, opacity: 0 },
-  show: { y: 0, opacity: 1 },
-};
-
-function InfoItem({ icon: Icon, label, value }: { icon: React.ElementType, label: string, value: string }) {
-  return (
-    <motion.div 
-      className="flex items-start gap-4 p-4 bg-background border rounded-lg"
-      variants={itemVariants}
-      transition={{ ease: "easeOut", duration: 0.3}}
-    >
-      <Icon className="h-6 w-6 mt-1 text-primary flex-shrink-0" />
-      <div>
-        <p className="font-medium text-muted-foreground">{label}</p>
-        <p className="font-semibold text-foreground text-base">{value}</p>
-      </div>
-    </motion.div>
-  )
-}
+                  </Aler...

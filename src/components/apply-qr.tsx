@@ -49,6 +49,7 @@ import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { generateQrCode } from "@/ai/flows/generate-qr-code";
 import { applyQrToPdf } from "@/ai/flows/apply-qr-to-pdf";
+import { addCertificate } from "@/lib/firebase";
 import { Slider } from "@/components/ui/slider";
 import { Label } from "@/components/ui/label";
 
@@ -82,9 +83,10 @@ export default function ApplyQrCode() {
 
   useEffect(() => {
     const loadPdfJs = async () => {
-        const pdfjs = await import('pdfjs-dist');
-        pdfjs.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.mjs`;
-        pdfjsRef.current = pdfjs;
+      // Dynamically import pdfjs-dist to ensure it's client-side only
+      const pdfjs = await import('pdfjs-dist');
+      pdfjs.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.mjs`;
+      pdfjsRef.current = pdfjs;
     };
     loadPdfJs();
   }, []);
@@ -161,12 +163,12 @@ export default function ApplyQrCode() {
 
   const handleGenerateQr = async () => {
     const { certificateId } = form.getValues();
-    const isFormValid = await form.trigger();
+    const isFormValid = await form.trigger(["certificateId"]);
     
-    if (!isFormValid) {
+    if (!isFormValid || !certificateId) {
       toast({
         title: "Missing Information",
-        description: "Please fill out all fields before generating the QR code.",
+        description: "Please fill out the Certificate ID before generating the QR code.",
         variant: "destructive",
       });
       return;
@@ -198,10 +200,11 @@ export default function ApplyQrCode() {
   };
   
   const handleSaveAndDownload = async () => {
-      if (!certificateFile || !qrCodeUrl || !previewContainerRef.current) {
+      const isFormValid = await form.trigger();
+      if (!isFormValid || !certificateFile || !qrCodeUrl || !previewContainerRef.current) {
           toast({
               title: "Error",
-              description: "Missing certificate, QR code, or preview data.",
+              description: "Please fill all fields and generate a QR code first.",
               variant: "destructive",
           });
           return;
@@ -209,10 +212,13 @@ export default function ApplyQrCode() {
       setIsProcessing(true);
       toast({
         title: "Processing Certificate...",
-        description: "Applying the QR code and preparing your download.",
+        description: "Applying QR, saving data, and preparing download.",
       });
       
       try {
+        const certificateData = form.getValues();
+        await addCertificate(certificateData);
+
         const reader = new FileReader();
         reader.readAsDataURL(certificateFile);
         reader.onload = async () => {
@@ -255,9 +261,10 @@ export default function ApplyQrCode() {
         reader.onerror = () => { throw new Error("Could not read PDF file for final processing.") }
       } catch (error) {
           console.error("Failed to save and download:", error);
+          const errorMessage = error instanceof Error ? error.message : "An unknown error occurred.";
           toast({
               title: "Processing Failed",
-              description: "Could not apply the QR code to the PDF. Please try again.",
+              description: `Could not save or process the certificate. ${errorMessage}`,
               variant: "destructive",
           });
       } finally {
