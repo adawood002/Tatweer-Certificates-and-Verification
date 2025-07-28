@@ -2,12 +2,12 @@ import Verification from "@/components/verification";
 
 type VerificationPageProps = {
   params: {
-    workId: string;
+    certificateId: string;
   };
 };
 
 export default function VerificationPage({ params }: VerificationPageProps) {
-  const { workId } = params;
+  const { certificateId } = params;
 
   return (
     <main className="flex min-h-screen flex-col items-center justify-center p-4 sm:p-12 md:p-24 bg-background font-body">
@@ -21,7 +21,7 @@ export default function VerificationPage({ params }: VerificationPageProps) {
           </p>
         </header>
 
-        <Verification workId={decodeURIComponent(workId)} />
+        <Verification certificateId={decodeURIComponent(certificateId)} />
 
       </div>
     </main>

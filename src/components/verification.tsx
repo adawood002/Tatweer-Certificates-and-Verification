@@ -30,9 +30,9 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Separator } from "@/components/ui/separator";
 
 export type Certificate = {
-  workId: string;
+  certificateId: string;
+  jobId: string;
   companyName: string;
-  companyId: string;
   expiryDate: Date;
   pdfUrl: string;
 };
@@ -40,35 +40,35 @@ export type Certificate = {
 // Mock data to simulate a database of certificates
 const MOCK_CERTIFICATES: Certificate[] = [
   {
-    workId: "W-67890",
+    certificateId: "CERT-12345",
+    jobId: "JOB-67890",
     companyName: "Innovatech Solutions",
-    companyId: "C-12345",
     expiryDate: new Date("2025-12-31T23:59:59"),
     pdfUrl: "/certs/innovatech-cert.pdf",
   },
   {
-    workId: "W-11223",
+    certificateId: "CERT-67890",
+    jobId: "JOB-11223",
     companyName: "Global Trust Services",
-    companyId: "C-67890",
     expiryDate: new Date("2023-01-15T23:59:59"), // Expired
     pdfUrl: "/certs/globaltrust-cert.pdf",
   },
   {
-    workId: "W-ABCDE",
+    certificateId: "CERT-ABCDE",
+    jobId: "JOB-FGHIJ",
     companyName: "Quantum Leap Inc.",
-    companyId: "C-FGHIJ",
     expiryDate: new Date(new Date().getTime() + 100 * 24 * 60 * 60 * 1000), // Expires in 100 days
     pdfUrl: "/certs/quantum-cert.pdf",
   },
 ];
 
 type VerificationProps = {
-  workId?: string;
+  certificateId?: string;
 };
 
-export default function Verification({ workId }: VerificationProps) {
-  const [searchQuery, setSearchQuery] = useState(workId || "");
-  const [isLoading, setIsLoading] = useState(!!workId);
+export default function Verification({ certificateId }: VerificationProps) {
+  const [searchQuery, setSearchQuery] = useState(certificateId || "");
+  const [isLoading, setIsLoading] = useState(!!certificateId);
   const [searchResult, setSearchResult] = useState<
     Certificate | "not_found" | null
   >(null);
@@ -80,17 +80,17 @@ export default function Verification({ workId }: VerificationProps) {
 
     // Simulate API call
     setTimeout(() => {
-      const result = MOCK_CERTIFICATES.find((cert) => cert.workId.toLowerCase() === query.toLowerCase());
+      const result = MOCK_CERTIFICATES.find((cert) => cert.certificateId.toLowerCase() === query.toLowerCase());
       setSearchResult(result || "not_found");
       setIsLoading(false);
     }, 1000);
   };
   
   useEffect(() => {
-    if (workId) {
-      performSearch(workId);
+    if (certificateId) {
+      performSearch(certificateId);
     }
-  }, [workId]);
+  }, [certificateId]);
 
 
   const handleSearch = (e: React.FormEvent) => {
@@ -107,7 +107,7 @@ export default function Verification({ workId }: VerificationProps) {
           Verify a Certificate
         </CardTitle>
         <CardDescription>
-          Enter the Work ID from a certificate to verify its authenticity and status.
+          Enter the Certificate ID to verify its authenticity and status.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -115,13 +115,13 @@ export default function Verification({ workId }: VerificationProps) {
           <div className="flex w-full items-center space-x-2">
             <Input
               type="text"
-              placeholder="Enter Work ID (e.g., W-67890)"
+              placeholder="Enter Certificate ID (e.g., CERT-12345)"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="flex-grow text-base h-11"
-              disabled={!!workId}
+              disabled={!!certificateId}
             />
-            {!workId && (
+            {!certificateId && (
               <Button type="submit" disabled={isLoading || !searchQuery} size="lg">
                 {isLoading ? (
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -163,7 +163,7 @@ export default function Verification({ workId }: VerificationProps) {
                 <AlertTriangle className="h-4 w-4" />
                 <AlertTitle>Not Found</AlertTitle>
                 <AlertDescription>
-                  No certificate found for the provided Work ID. Please check
+                  No certificate found for the provided Certificate ID. Please check
                   the ID and try again.
                 </AlertDescription>
               </Alert>
@@ -195,9 +195,9 @@ export default function Verification({ workId }: VerificationProps) {
                   initial="hidden"
                   animate="show"
                 >
-                  <InfoItem icon={Fingerprint} label="Work ID" value={searchResult.workId} />
+                  <InfoItem icon={Fingerprint} label="Certificate ID" value={searchResult.certificateId} />
+                  <InfoItem icon={Briefcase} label="Job ID" value={searchResult.jobId} />
                   <InfoItem icon={Building} label="Company Name" value={searchResult.companyName} />
-                  <InfoItem icon={Briefcase} label="Company ID" value={searchResult.companyId} />
                   <InfoItem icon={CalendarClock} label="Expiry Date" value={format(searchResult.expiryDate, "PPP")} />
                 </motion.div>
                 

@@ -6,7 +6,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { format } from "date-fns";
 import { motion, AnimatePresence } from "framer-motion";
-import * as pdfjs from 'pdfjs-dist';
+import type * as PdfJs from 'pdfjs-dist';
 
 import {
   CalendarIcon,
@@ -52,13 +52,10 @@ import { applyQrToPdf } from "@/ai/flows/apply-qr-to-pdf";
 import { Slider } from "@/components/ui/slider";
 import { Label } from "@/components/ui/label";
 
-pdfjs.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.mjs`;
-
-
 const formSchema = z.object({
+  certificateId: z.string().min(1, "Certificate ID is required."),
+  jobId: z.string().min(1, "Job ID is required."),
   companyName: z.string().min(2, "Company name must be at least 2 characters."),
-  companyId: z.string().min(1, "Company ID is required."),
-  workId: z.string().min(1, "Work ID is required."),
   expiryDate: z.date({ required_error: "An expiry date is required." }),
 });
 
@@ -81,12 +78,23 @@ export default function ApplyQrCode() {
   const isDraggingRef = useRef(false);
   const dragStartRef = useRef({ x: 0, y: 0 });
 
+  const pdfjsRef = useRef<typeof PdfJs | null>(null);
+
+  useEffect(() => {
+    const loadPdfJs = async () => {
+        const pdfjs = await import('pdfjs-dist');
+        pdfjs.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.mjs`;
+        pdfjsRef.current = pdfjs;
+    };
+    loadPdfJs();
+  }, []);
+
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
+      certificateId: "",
+      jobId: "",
       companyName: "",
-      companyId: "",
-      workId: "",
     },
   });
 
@@ -99,13 +107,23 @@ export default function ApplyQrCode() {
         setPdfPreviewUrl(null);
         setIsGenerating(true);
 
+        if (!pdfjsRef.current) {
+            toast({
+                title: "PDF Library Loading",
+                description: "Please wait a moment for the PDF library to load and try again.",
+                variant: "destructive"
+            });
+            setIsGenerating(false);
+            return;
+        }
+
         try {
           const fileReader = new FileReader();
           fileReader.readAsArrayBuffer(file);
           fileReader.onload = async (e) => {
             const pdfData = e.target?.result;
             if (pdfData instanceof ArrayBuffer) {
-              const loadingTask = pdfjs.getDocument({ data: pdfData });
+              const loadingTask = pdfjsRef.current!.getDocument({ data: pdfData });
               const doc = await loadingTask.promise;
               const page = await doc.getPage(1);
               const viewport = page.getViewport({ scale: 1.5 });
@@ -142,8 +160,10 @@ export default function ApplyQrCode() {
   };
 
   const handleGenerateQr = async () => {
-    const { workId, companyName, companyId, expiryDate } = form.getValues();
-    if (!workId || !companyName || !companyId || !expiryDate) {
+    const { certificateId } = form.getValues();
+    const isFormValid = await form.trigger();
+    
+    if (!isFormValid) {
       toast({
         title: "Missing Information",
         description: "Please fill out all fields before generating the QR code.",
@@ -158,7 +178,7 @@ export default function ApplyQrCode() {
     });
 
     try {
-      const verificationUrl = `${window.location.origin}/verify/${encodeURIComponent(workId)}`;
+      const verificationUrl = `${window.location.origin}/verify/${encodeURIComponent(certificateId)}`;
       const qrCodeDataUrl = await generateQrCode(verificationUrl);
       setQrCodeUrl(qrCodeDataUrl);
       toast({
@@ -358,6 +378,34 @@ export default function ApplyQrCode() {
                 <div className="space-y-4">
                   <FormField
                     control={form.control}
+                    name="certificateId"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Certificate ID</FormLabel>
+                        <FormControl>
+                          <Input placeholder="e.g. CERT-12345" {...field} />
+                        </FormControl>
+                        <FormDescription>Unique ID for this certificate.</FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                   <FormField
+                    control={form.control}
+                    name="jobId"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Job ID</FormLabel>
+                        <FormControl>
+                          <Input placeholder="e.g. JOB-67890" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+                <FormField
+                    control={form.control}
                     name="companyName"
                     render={({ field }) => (
                       <FormItem>
@@ -369,34 +417,6 @@ export default function ApplyQrCode() {
                       </FormItem>
                     )}
                   />
-                  <FormField
-                    control={form.control}
-                    name="companyId"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Company ID</FormLabel>
-                        <FormControl>
-                          <Input placeholder="e.g. C-12345" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-                 <FormField
-                control={form.control}
-                name="workId"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Work ID</FormLabel>
-                    <FormDescription>This will be used for verification.</FormDescription>
-                    <FormControl>
-                      <Input placeholder="e.g. W-67890" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
               <FormField
                 control={form.control}
                 name="expiryDate"
@@ -477,17 +497,11 @@ export default function ApplyQrCode() {
                                     alt="QR Code"
                                     className="absolute cursor-move"
                                     style={{
-                                        left: 0,
-                                        top: 0,
+                                        left: qrPosition.x,
+                                        top: qrPosition.y,
                                         width: `${qrSize}px`,
                                         height: `${qrSize}px`,
                                         touchAction: 'none'
-                                    }}
-                                    animate={{
-                                        x: qrPosition.x,
-                                        y: qrPosition.y,
-                                        width: qrSize,
-                                        height: qrSize
                                     }}
                                     onMouseDown={handleMouseDown}
                                 />

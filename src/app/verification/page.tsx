@@ -23,7 +23,7 @@ export default function VerificationPage() {
             </h1>
           </div>
           <p className="mt-2 text-lg text-muted-foreground max-w-2xl mx-auto">
-            Enter the Work ID from a certificate to verify its authenticity and
+            Enter the Certificate ID from a certificate to verify its authenticity and
             status.
           </p>
         </motion.header>
