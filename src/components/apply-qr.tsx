@@ -227,29 +227,38 @@ export default function ApplyQrCode() {
     try {
         const reader = new FileReader();
         reader.readAsDataURL(certificateFile);
-        reader.onload = async () => {
-            const pdfBase64 = (reader.result as string).split(",")[1];
-            if (!pdfBase64) throw new Error("Failed to read the PDF file.");
+        reader.onload = async (event) => {
+            try {
+                const pdfBase64 = (event.target?.result as string)?.split(",")[1];
+                if (!pdfBase64) throw new Error("Failed to read the PDF file.");
 
-            const previewRect = previewContainerRef.current!.getBoundingClientRect();
-            
-            const newPdfBase64 = await applyQrToPdf({
-                pdfBase64,
-                qrCodeDataUrl: qrCodeUrl,
-                qrPosition: { x: qrPosition.current.x, y: qrPosition.current.y },
-                qrSize: { width: qrSize, height: qrSize },
-                previewSize: { width: previewRect.width, height: previewRect.height }
-            });
+                const previewRect = previewContainerRef.current!.getBoundingClientRect();
+                
+                const newPdfBase64 = await applyQrToPdf({
+                    pdfBase64,
+                    qrCodeDataUrl: qrCodeUrl,
+                    qrPosition: { x: qrPosition.current.x, y: qrPosition.current.y },
+                    qrSize: { width: qrSize, height: qrSize },
+                    previewSize: { width: previewRect.width, height: previewRect.height }
+                });
 
-            setModifiedPdfData(newPdfBase64);
-            setCurrentStep('save');
-            toast({ title: "QR Code Applied Successfully", description: "You can now save the certificate." });
+                setModifiedPdfData(newPdfBase64);
+                setCurrentStep('save');
+                toast({ title: "QR Code Applied Successfully", description: "You can now save the certificate." });
+            } catch (error) {
+                 console.error("Failed to apply QR:", error);
+                 toast({ title: "Applying QR Failed", description: "Could not apply the QR code.", variant: "destructive" });
+            } finally {
+                setIsProcessing(false);
+            }
         };
-        reader.onerror = () => { throw new Error("Could not read PDF file for processing.") }
+        reader.onerror = () => { 
+            toast({ title: "File Read Error", description: "Could not read PDF file for processing.", variant: "destructive" });
+            setIsProcessing(false);
+        }
     } catch (error) {
         console.error("Failed to apply QR:", error);
-        toast({ title: "Applying QR Failed", description: "Could not apply the QR code.", variant: "destructive" });
-    } finally {
+        toast({ title: "Applying QR Failed", description: "An unexpected error occurred.", variant: "destructive" });
         setIsProcessing(false);
     }
   }
