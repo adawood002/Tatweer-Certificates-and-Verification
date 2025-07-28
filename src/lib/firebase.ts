@@ -46,7 +46,7 @@ export const addCertificate = async (certificate: Omit<Certificate, 'pdfUrl'>, p
   try {
     const docRef = await addDoc(collection(db, CERTIFICATES_COLLECTION), {
         ...certificate,
-        expiryDate: Timestamp.fromDate(certificate.expiryDate), // Store date as Firestore Timestamp
+        expiryDate: Timestamp.fromDate(new Date(certificate.expiryDate)), // Store date as Firestore Timestamp
         pdfUrl: pdfUrl,
     });
     console.log("Document written with ID: ", docRef.id);
