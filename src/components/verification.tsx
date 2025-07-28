@@ -35,7 +35,7 @@ export type Certificate = {
   jobId: string;
   companyName: string;
   expiryDate: Date;
-  pdfUrl: string;
+  pdfUrl?: string;
 };
 
 type VerificationProps = {
@@ -162,4 +162,69 @@ export default function Verification({ certificateId }: VerificationProps) {
                   {isExpired ? <ShieldX className="h-5 w-5" /> : <ShieldCheck className="h-5 w-5" />}
                   <AlertTitle className="font-bold text-lg">
                     {isExpired ? "Certificate Expired" : "Certificate Valid"}
-                  </Aler...
+                  </AlertTitle>
+                  <AlertDescription>
+                    {isExpired
+                      ? "This certificate is no longer valid as of its expiry date."
+                      : "This certificate has been successfully verified and is active."}
+                  </AlertDescription>
+                </Alert>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4 text-sm">
+                  <div className="flex items-center gap-3">
+                    <Fingerprint className="w-5 h-5 text-primary" />
+                    <div>
+                      <p className="font-semibold text-muted-foreground">Certificate ID</p>
+                      <p className="font-mono text-foreground">{searchResult.certificateId}</p>
+                    </div>
+                  </div>
+                   <div className="flex items-center gap-3">
+                    <Briefcase className="w-5 h-5 text-primary" />
+                    <div>
+                      <p className="font-semibold text-muted-foreground">Job ID</p>
+                      <p className="text-foreground">{searchResult.jobId}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <Building className="w-5 h-5 text-primary" />
+                    <div>
+                      <p className="font-semibold text-muted-foreground">Company Name</p>
+                      <p className="text-foreground">{searchResult.companyName}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <CalendarClock className="w-5 h-5 text-primary" />
+                     <div>
+                      <p className="font-semibold text-muted-foreground">Expiry Date</p>
+                      <p className="text-foreground">
+                        {format(searchResult.expiryDate, "MMMM dd, yyyy")}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {!isExpired && searchResult.pdfUrl && (
+                    <>
+                        <Separator className="my-6" />
+                        <h3 className="text-lg font-semibold mb-3 text-center">Certificate Preview</h3>
+                        <div className="w-full p-2 border rounded-lg bg-muted/30">
+                            <iframe 
+                                src={searchResult.pdfUrl}
+                                className="w-full h-[600px] border-none rounded-md"
+                                title="Certificate Preview"
+                            />
+                        </div>
+                    </>
+                )}
+              </div>
+            )}
+          </motion.div>
+        )}
+        </AnimatePresence>
+
+      </CardContent>
+    </Card>
+  );
+}
+
+    

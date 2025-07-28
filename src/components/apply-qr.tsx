@@ -72,12 +72,14 @@ export default function ApplyQrCode() {
   const [qrCodeUrl, setQrCodeUrl] = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
 
-  const [qrPosition, setQrPosition] = useState({ x: 10, y: 10 });
+  const qrPosition = useRef({ x: 10, y: 10 });
   const [qrSize, setQrSize] = useState(120);
 
   const previewContainerRef = useRef<HTMLDivElement>(null);
   const isDraggingRef = useRef(false);
   const dragStartRef = useRef({ x: 0, y: 0 });
+  const qrRef = useRef<HTMLImageElement>(null);
+
 
   const pdfjsRef = useRef<typeof PdfJs | null>(null);
 
@@ -233,8 +235,8 @@ export default function ApplyQrCode() {
                 pdfBase64,
                 qrCodeDataUrl: qrCodeUrl,
                 qrPosition: {
-                    x: qrPosition.x,
-                    y: qrPosition.y
+                    x: qrPosition.current.x,
+                    y: qrPosition.current.y,
                 },
                 qrSize: {
                     width: qrSize,
@@ -272,15 +274,16 @@ export default function ApplyQrCode() {
       }
   }
 
-  const handleMouseDown = (event: React.MouseEvent<HTMLImageElement>) => {
-    if (event.button !== 0) return;
+  const handleMouseDown = (e: React.MouseEvent<HTMLImageElement>) => {
+    if (e.button !== 0 || !qrRef.current) return;
     isDraggingRef.current = true;
+    const qrElem = qrRef.current;
+    
     dragStartRef.current = {
-      x: event.clientX - qrPosition.x,
-      y: event.clientY - qrPosition.y,
+      x: e.clientX - qrElem.offsetLeft,
+      y: e.clientY - qrElem.offsetTop,
     };
-    event.preventDefault();
-
+    
     const handleMouseMove = (moveEvent: MouseEvent) => {
       if (!isDraggingRef.current || !previewContainerRef.current) return;
 
@@ -290,8 +293,11 @@ export default function ApplyQrCode() {
 
       newX = Math.max(0, Math.min(newX, containerRect.width - qrSize));
       newY = Math.max(0, Math.min(newY, containerRect.height - qrSize));
+      
+      qrPosition.current = { x: newX, y: newY };
 
-      setQrPosition({ x: newX, y: newY });
+      qrElem.style.left = `${newX}px`;
+      qrElem.style.top = `${newY}px`;
     };
 
     const handleMouseUp = () => {
@@ -499,13 +505,14 @@ export default function ApplyQrCode() {
                         <div className="grid md:grid-cols-3 gap-6 items-start">
                             <div className="md:col-span-2 relative w-full border-2 border-dashed rounded-lg p-2" ref={previewContainerRef}>
                                 <img src={pdfPreviewUrl} alt="Certificate Preview" className="w-full h-auto" />
-                                <motion.img
+                                <img
+                                    ref={qrRef}
                                     src={qrCodeUrl}
                                     alt="QR Code"
                                     className="absolute cursor-move"
                                     style={{
-                                        left: qrPosition.x,
-                                        top: qrPosition.y,
+                                        left: qrPosition.current.x,
+                                        top: qrPosition.current.y,
                                         width: `${qrSize}px`,
                                         height: `${qrSize}px`,
                                         touchAction: 'none'
@@ -539,8 +546,8 @@ export default function ApplyQrCode() {
                                     Position
                                   </Label>
                                    <div className="flex items-center gap-4 text-sm p-2 border rounded-md bg-muted/50">
-                                      <span>X: {Math.round(qrPosition.x)}px</span>
-                                      <span>Y: {Math.round(qrPosition.y)}px</span>
+                                      <span>X: {Math.round(qrPosition.current.x)}px</span>
+                                      <span>Y: {Math.round(qrPosition.current.y)}px</span>
                                    </div>
                                 </div>
                             </div>
@@ -581,3 +588,5 @@ export default function ApplyQrCode() {
     </Card>
   );
 }
+
+    
