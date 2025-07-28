@@ -1,7 +1,7 @@
 // Import the functions you need from the SDKs you need
 import { initializeApp, getApps } from "firebase/app";
 import { getFirestore, collection, addDoc, getDocs, query, where, Timestamp } from "firebase/firestore";
-import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { getStorage } from "firebase/storage";
 import type { Certificate } from "@/components/verification";
 
 // Your web app's Firebase configuration
@@ -24,30 +24,16 @@ if (!getApps().length) {
 }
 
 const db = getFirestore(app);
-const storage = getStorage(app);
+getStorage(app);
 
 const CERTIFICATES_COLLECTION = 'certificates';
 
-// Function to upload a PDF and get its URL
-export const uploadCertificatePdf = async (pdfBlob: Blob, fileName: string): Promise<string> => {
-    const storageRef = ref(storage, `certificates/${fileName}`);
-    try {
-        const snapshot = await uploadBytes(storageRef, pdfBlob);
-        const downloadURL = await getDownloadURL(snapshot.ref);
-        return downloadURL;
-    } catch (e) {
-        console.error("Error uploading file: ", e);
-        throw new Error("Could not upload the certificate PDF.");
-    }
-}
-
 // Function to add a new certificate
-export const addCertificate = async (certificate: Omit<Certificate, 'pdfUrl'>, pdfUrl: string) => {
+export const addCertificate = async (certificate: Omit<Certificate, 'pdfUrl'>) => {
   try {
     const docRef = await addDoc(collection(db, CERTIFICATES_COLLECTION), {
         ...certificate,
         expiryDate: Timestamp.fromDate(new Date(certificate.expiryDate)), // Store date as Firestore Timestamp
-        pdfUrl: pdfUrl,
     });
     console.log("Document written with ID: ", docRef.id);
     return docRef.id;
@@ -75,7 +61,6 @@ export const getCertificateById = async (certificateId: string): Promise<Certifi
             jobId: data.jobId,
             companyName: data.companyName,
             expiryDate: (data.expiryDate as Timestamp).toDate(), // Convert Timestamp back to Date
-            pdfUrl: data.pdfUrl || ''
         };
     } catch(e) {
         console.error("Error fetching document:", e);

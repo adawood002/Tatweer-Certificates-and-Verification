@@ -35,7 +35,7 @@ export type Certificate = {
   jobId: string;
   companyName: string;
   expiryDate: Date;
-  pdfUrl?: string;
+  pdfUrl?: string; // This is now optional as we don't save it
 };
 
 type VerificationProps = {
@@ -202,20 +202,6 @@ export default function Verification({ certificateId }: VerificationProps) {
                     </div>
                   </div>
                 </div>
-
-                {!isExpired && searchResult.pdfUrl && (
-                    <>
-                        <Separator className="my-6" />
-                        <h3 className="text-lg font-semibold mb-3 text-center">Certificate Preview</h3>
-                        <div className="w-full p-2 border rounded-lg bg-muted/30">
-                            <iframe 
-                                src={searchResult.pdfUrl}
-                                className="w-full h-[600px] border-none rounded-md"
-                                title="Certificate Preview"
-                            />
-                        </div>
-                    </>
-                )}
               </div>
             )}
           </motion.div>
@@ -226,5 +212,3 @@ export default function Verification({ certificateId }: VerificationProps) {
     </Card>
   );
 }
-
-    

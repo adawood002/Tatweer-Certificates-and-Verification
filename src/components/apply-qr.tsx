@@ -50,7 +50,7 @@ import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { generateQrCode } from "@/ai/flows/generate-qr-code";
 import { applyQrToPdf } from "@/ai/flows/apply-qr-to-pdf";
-import { addCertificate, uploadCertificatePdf } from "@/lib/firebase";
+import { addCertificate } from "@/lib/firebase";
 import { Slider } from "@/components/ui/slider";
 import { Label } from "@/components/ui/label";
 
@@ -244,7 +244,7 @@ export default function ApplyQrCode() {
 
                 setModifiedPdfData(newPdfBase64);
                 setCurrentStep('save');
-                toast({ title: "QR Code Applied Successfully", description: "You can now save the certificate." });
+                toast({ title: "QR Code Applied Successfully", description: "You can now save the certificate information." });
             } catch (error) {
                  console.error("Failed to apply QR:", error);
                  toast({ title: "Applying QR Failed", description: "Could not apply the QR code.", variant: "destructive" });
@@ -264,32 +264,20 @@ export default function ApplyQrCode() {
   }
 
   const handleSaveChanges = async () => {
-    if (!modifiedPdfData || !certificateFile) {
-        toast({ title: "Error", description: "No modified PDF to save.", variant: "destructive" });
+    if (!certificateFile) {
+        toast({ title: "Error", description: "No certificate information to save.", variant: "destructive" });
         return;
     }
     setIsProcessing(true);
-    toast({ title: "Saving Certificate...", description: "Uploading file and saving data." });
+    toast({ title: "Saving Certificate Info...", description: "Saving data to the database." });
 
     try {
-        // Convert base64 to blob
-        const byteCharacters = atob(modifiedPdfData);
-        const byteNumbers = new Array(byteCharacters.length);
-        for (let i = 0; i < byteCharacters.length; i++) {
-            byteNumbers[i] = byteCharacters.charCodeAt(i);
-        }
-        const byteArray = new Uint8Array(byteNumbers);
-        const pdfBlob = new Blob([byteArray], {type: 'application/pdf'});
-
-        // Upload to Firebase Storage
-        const downloadURL = await uploadCertificatePdf(pdfBlob, `stamped-${certificateFile.name}`);
-        
         // Save metadata to Firestore
         const certificateData = form.getValues();
-        await addCertificate(certificateData, downloadURL);
+        await addCertificate(certificateData);
 
         setCurrentStep('download');
-        toast({ title: "Certificate Saved!", description: "Your certificate has been securely saved." });
+        toast({ title: "Certificate Info Saved!", description: "Your certificate information has been securely saved." });
     } catch (error) {
         console.error("Failed to save certificate:", error);
         const errorMessage = error instanceof Error ? error.message : "An unknown error occurred.";
@@ -363,12 +351,12 @@ export default function ApplyQrCode() {
             return (
                 <Button onClick={handleSaveChanges} className="w-full text-lg h-12" disabled={isProcessing}>
                     {isProcessing ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <Save className="mr-2 h-5 w-5" />}
-                    Save Certificate
+                    Save Certificate Info
                 </Button>
             );
         case 'download':
             return (
-                <Button onClick={handleDownload} className="w-full text-lg h-12" disabled={isProcessing}>
+                <Button onClick={handleDownload} className="w-full text-lg h-12" disabled={isProcessing || !modifiedPdfData}>
                     <Download className="mr-2 h-5 w-5" />
                     Download Secured PDF
                 </Button>
