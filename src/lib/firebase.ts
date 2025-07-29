@@ -6,12 +6,12 @@ import type { Certificate } from "@/components/verification";
 
 // Your web app's Firebase configuration
 const firebaseConfig = {
-  apiKey: "AIzaSyCr_PONMMZUuKTGVQtjF9rvC4O2Hwjo_6Q",
-  authDomain: "synapdb-nexus.firebaseapp.com",
-  projectId: "synapdb-nexus",
-  storageBucket: "synapdb-nexus.appspot.com",
-  messagingSenderId: "710536601680",
-  appId: "1:710536601680:web:45ff1928ade1b5d412f155"
+  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
+  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID
 };
 
 
