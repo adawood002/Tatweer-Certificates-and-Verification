@@ -1,11 +1,12 @@
 // Import the functions you need from the SDKs you need
-import { initializeApp, getApps } from "firebase/app";
+import { initializeApp, getApps, FirebaseOptions } from "firebase/app";
 import { getFirestore, collection, addDoc, getDocs, query, where, Timestamp } from "firebase/firestore";
 import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import type { Certificate } from "@/components/verification";
+import 'dotenv/config'
 
 // Your web app's Firebase configuration
-const firebaseConfig = {
+const firebaseConfig: FirebaseOptions = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
   authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
   projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
@@ -48,7 +49,7 @@ export const uploadCertificate = async (pdfBlob: Blob, certificateId: string): P
 
 
 // Function to add a new certificate
-export const addCertificate = async (certificate: Certificate) => {
+export const addCertificate = async (certificate: Omit<Certificate, 'id'>) => {
   try {
     if (!(certificate.expiryDate instanceof Date)) {
       throw new Error("expiryDate must be a valid Date object.");
