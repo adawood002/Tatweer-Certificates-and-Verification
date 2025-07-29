@@ -37,7 +37,7 @@ const ProcessCertificateInputSchema = z.object({
   certificateId: z.string(),
   jobId: z.string(),
   companyName: z.string(),
-  expiryDate: z.coerce.date(),
+  expiryDate: z.string().describe('The expiry date as an ISO string.'),
   pdfBase64: z.string().describe('The original PDF file encoded in base64.'),
   qrCodeDataUrl: z.string().describe('The QR code image as a data URL.'),
   qrPosition: z.object({
@@ -107,7 +107,7 @@ const processCertificateFlow = ai.defineFlow(
       certificateId: input.certificateId,
       jobId: input.jobId,
       companyName: input.companyName,
-      expiryDate: input.expiryDate,
+      expiryDate: new Date(input.expiryDate), // Manually convert string to Date
       pdfUrl: downloadUrl,
     });
     
