@@ -1,7 +1,7 @@
 // Import the functions you need from the SDKs you need
 import { initializeApp, getApps } from "firebase/app";
 import { getFirestore, collection, addDoc, getDocs, query, where, Timestamp } from "firebase/firestore";
-import { getStorage } from "firebase/storage";
+import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import type { Certificate } from "@/components/verification";
 
 // Your web app's Firebase configuration
@@ -24,9 +24,25 @@ if (!getApps().length) {
 }
 
 const db = getFirestore(app);
-getStorage(app);
+const storage = getStorage(app);
 
 const CERTIFICATES_COLLECTION = 'certificates';
+
+// Function to upload a stamped certificate PDF
+export const uploadCertificate = async (pdfBlob: Blob, certificateId: string): Promise<string> => {
+    try {
+        const storageRef = ref(storage, `certificates/${certificateId}.pdf`);
+        const uploadResult = await uploadBytes(storageRef, pdfBlob, {
+            contentType: 'application/pdf',
+        });
+        const downloadUrl = await getDownloadURL(uploadResult.ref);
+        return downloadUrl;
+    } catch (e) {
+        console.error("Error uploading file: ", e);
+        throw new Error("Could not upload the certificate PDF.");
+    }
+}
+
 
 // Function to add a new certificate
 export const addCertificate = async (certificate: Certificate) => {

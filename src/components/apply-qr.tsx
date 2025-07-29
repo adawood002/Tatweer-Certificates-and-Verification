@@ -49,7 +49,8 @@ import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { generateQrCode } from "@/ai/flows/generate-qr-code";
-import { processCertificate } from "@/ai/flows/process-certificate-flow";
+import { applyQrToPdf } from "@/ai/flows/apply-qr-to-pdf";
+import { uploadCertificate, addCertificate } from "@/lib/firebase";
 import { Slider } from "@/components/ui/slider";
 import { Label } from "@/components/ui/label";
 
@@ -234,14 +235,13 @@ export default function ApplyQrCode() {
     }
     
     setIsProcessing(true);
-    toast({ title: "Processing & Saving...", description: "Applying QR, uploading, and saving certificate info." });
+    toast({ title: "Processing Certificate...", description: "Applying QR code and preparing for upload." });
 
     try {
         const previewRect = previewContainerRef.current!.getBoundingClientRect();
-        const certificateData = form.getValues();
         
-        const result = await processCertificate({
-            ...certificateData,
+        // Step 1: Apply QR to PDF using the dedicated flow
+        const stampedPdfBase64 = await applyQrToPdf({
             pdfBase64,
             qrCodeDataUrl: qrCodeUrl,
             qrPosition: { x: qrPosition.current.x, y: qrPosition.current.y },
@@ -249,9 +249,26 @@ export default function ApplyQrCode() {
             previewSize: { width: previewRect.width, height: previewRect.height }
         });
 
-        setDownloadUrl(result.pdfUrl);
+        toast({ title: "Uploading Certificate...", description: "Saving the secured PDF to storage." });
+        
+        // Step 2: Convert base64 to Blob and upload to Firebase Storage
+        const fetchRes = await fetch(`data:application/pdf;base64,${stampedPdfBase64}`);
+        const pdfBlob = await fetchRes.blob();
+        const certificateId = form.getValues().certificateId;
+        const uploadedPdfUrl = await uploadCertificate(pdfBlob, certificateId);
+
+        toast({ title: "Saving Certificate Info...", description: "Finalizing and saving metadata." });
+
+        // Step 3: Save metadata to Firestore
+        await addCertificate({
+            ...form.getValues(),
+            pdfUrl: uploadedPdfUrl
+        });
+
+        setDownloadUrl(uploadedPdfUrl);
         setCurrentStep('download');
         toast({ title: "Success!", description: "Certificate has been stamped, uploaded, and saved." });
+
     } catch (error) {
         console.error("Failed to process certificate:", error);
         const errorMessage = error instanceof Error ? error.message : "An unknown error occurred.";
