@@ -50,15 +50,24 @@ export const addCertificate = async (certificate: Certificate) => {
     if (!(certificate.expiryDate instanceof Date)) {
       throw new Error("expiryDate must be a valid Date object.");
     }
-    const docRef = await addDoc(collection(db, CERTIFICATES_COLLECTION), {
-        ...certificate,
-        expiryDate: Timestamp.fromDate(certificate.expiryDate), // Store date as Firestore Timestamp
-    });
+
+    // Create a plain object to ensure no complex types are passed unexpectedly
+    const dataToSave = {
+      certificateId: certificate.certificateId,
+      jobId: certificate.jobId,
+      companyName: certificate.companyName,
+      pdfUrl: certificate.pdfUrl,
+      expiryDate: Timestamp.fromDate(certificate.expiryDate), // Store date as Firestore Timestamp
+    };
+
+    const docRef = await addDoc(collection(db, CERTIFICATES_COLLECTION), dataToSave);
+    
     console.log("Document written with ID: ", docRef.id);
     return docRef.id;
   } catch (e) {
     console.error("Error adding document: ", e);
-    throw new Error("Could not save certificate data.");
+    const errorMessage = e instanceof Error ? e.message : "An unknown error occurred during save.";
+    throw new Error(`Could not save certificate data: ${errorMessage}`);
   }
 };
 
