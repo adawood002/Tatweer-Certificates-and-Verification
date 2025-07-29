@@ -51,9 +51,9 @@ export const uploadCertificate = async (pdfBlob: Blob, certificateId: string): P
 // Function to add a new certificate
 export const addCertificate = async (certificate: Omit<Certificate, 'id'>) => {
   try {
-    if (!(certificate.expiryDate instanceof Date)) {
-      throw new Error("expiryDate must be a valid Date object.");
-    }
+    const expiryDate = certificate.expiryDate instanceof Date 
+        ? Timestamp.fromDate(certificate.expiryDate)
+        : certificate.expiryDate;
 
     // Create a plain object to ensure no complex types are passed unexpectedly
     const dataToSave = {
@@ -61,7 +61,7 @@ export const addCertificate = async (certificate: Omit<Certificate, 'id'>) => {
       jobId: certificate.jobId,
       companyName: certificate.companyName,
       pdfUrl: certificate.pdfUrl,
-      expiryDate: Timestamp.fromDate(certificate.expiryDate), // Store date as Firestore Timestamp
+      expiryDate: expiryDate, // Store date as Firestore Timestamp
     };
 
     const docRef = await addDoc(collection(db, CERTIFICATES_COLLECTION), dataToSave);
