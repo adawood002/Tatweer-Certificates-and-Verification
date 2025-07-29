@@ -30,6 +30,9 @@ const CERTIFICATES_COLLECTION = 'certificates';
 
 // Function to upload a stamped certificate PDF
 export const uploadCertificate = async (pdfBlob: Blob, certificateId: string): Promise<string> => {
+    if (!certificateId) {
+        throw new Error("Certificate ID is required for upload.");
+    }
     try {
         const storageRef = ref(storage, `certificates/${certificateId}.pdf`);
         const uploadResult = await uploadBytes(storageRef, pdfBlob, {
@@ -37,9 +40,9 @@ export const uploadCertificate = async (pdfBlob: Blob, certificateId: string): P
         });
         const downloadUrl = await getDownloadURL(uploadResult.ref);
         return downloadUrl;
-    } catch (e) {
-        console.error("Error uploading file: ", e);
-        throw new Error("Could not upload the certificate PDF.");
+    } catch (e: any) {
+        console.error("Error uploading file to Firebase Storage: ", e);
+        throw new Error(`Could not upload the certificate PDF. Firebase error: ${e.message}`);
     }
 }
 
@@ -64,8 +67,8 @@ export const addCertificate = async (certificate: Certificate) => {
     
     console.log("Document written with ID: ", docRef.id);
     return docRef.id;
-  } catch (e) {
-    console.error("Error adding document: ", e);
+  } catch (e: any) {
+    console.error("Error adding document to Firestore: ", e);
     const errorMessage = e instanceof Error ? e.message : "An unknown error occurred during save.";
     throw new Error(`Could not save certificate data: ${errorMessage}`);
   }
@@ -91,8 +94,8 @@ export const getCertificateById = async (certificateId: string): Promise<Certifi
             expiryDate: (data.expiryDate as Timestamp).toDate(), // Convert Timestamp back to Date
             pdfUrl: data.pdfUrl || ''
         };
-    } catch(e) {
-        console.error("Error fetching document:", e);
-        throw new Error("Could not fetch certificate data.");
+    } catch(e: any) {
+        console.error("Error fetching document from Firestore:", e);
+        throw new Error(`Could not fetch certificate data. Firebase error: ${e.message}`);
     }
 }

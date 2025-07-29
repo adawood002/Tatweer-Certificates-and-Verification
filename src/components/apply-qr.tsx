@@ -235,12 +235,10 @@ export default function ApplyQrCode() {
     }
     
     setIsProcessing(true);
-    toast({ title: "Processing Certificate...", description: "Applying QR code and preparing for upload." });
-
+    
     try {
+        toast({ title: "Processing Certificate...", description: "Applying QR code and preparing for upload." });
         const previewRect = previewContainerRef.current!.getBoundingClientRect();
-        
-        // Step 1: Apply QR to PDF using the dedicated flow
         const stampedPdfBase64 = await applyQrToPdf({
             pdfBase64,
             qrCodeDataUrl: qrCodeUrl,
@@ -251,7 +249,6 @@ export default function ApplyQrCode() {
 
         toast({ title: "Uploading Certificate...", description: "Saving the secured PDF to storage." });
         
-        // Step 2: Convert base64 to Blob and upload to Firebase Storage
         const fetchRes = await fetch(`data:application/pdf;base64,${stampedPdfBase64}`);
         const pdfBlob = await fetchRes.blob();
         const certificateId = form.getValues().certificateId;
@@ -259,7 +256,6 @@ export default function ApplyQrCode() {
 
         toast({ title: "Saving Certificate Info...", description: "Finalizing and saving metadata." });
 
-        // Step 3: Save metadata to Firestore
         await addCertificate({
             ...form.getValues(),
             pdfUrl: uploadedPdfUrl
@@ -269,10 +265,11 @@ export default function ApplyQrCode() {
         setCurrentStep('download');
         toast({ title: "Success!", description: "Certificate has been stamped, uploaded, and saved." });
 
-    } catch (error) {
+    } catch (error: any) {
         console.error("Failed to process certificate:", error);
         const errorMessage = error instanceof Error ? error.message : "An unknown error occurred.";
         toast({ title: "Processing Failed", description: errorMessage, variant: "destructive" });
+        setCurrentStep('save'); // Revert to the save step on failure
     } finally {
         setIsProcessing(false);
     }
