@@ -14,6 +14,7 @@ import {
   AlertTriangle,
   ShieldCheck,
   ShieldX,
+  Download,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -35,7 +36,7 @@ export type Certificate = {
   jobId: string;
   companyName: string;
   expiryDate: Date;
-  pdfUrl?: string; // This is now optional as we don't save it
+  pdfUrl: string; 
 };
 
 type VerificationProps = {
@@ -149,7 +150,7 @@ export default function Verification({ certificateId }: VerificationProps) {
             <Separator className="my-6" />
             {searchResult === "not_found" ? (
               <Alert variant="destructive" className="py-4">
-                <AlertTriangle className="h-4 w-4" />
+                <FileX className="h-4 w-4" />
                 <AlertTitle>Not Found</AlertTitle>
                 <AlertDescription>
                   No certificate found for the provided Certificate ID. Please check
@@ -202,6 +203,17 @@ export default function Verification({ certificateId }: VerificationProps) {
                     </div>
                   </div>
                 </div>
+
+                <div className="mt-6 pt-6 border-t">
+                  <h4 className="font-semibold mb-2 flex items-center gap-2"><FileCheck className="w-5 h-5 text-primary" />Stamped Certificate</h4>
+                  <a href={searchResult.pdfUrl} target="_blank" rel="noopener noreferrer" className="w-full">
+                    <Button variant="outline" className="w-full">
+                      <Download className="mr-2 h-4 w-4" />
+                      View or Download Stamped PDF
+                    </Button>
+                  </a>
+                </div>
+
               </div>
             )}
           </motion.div>

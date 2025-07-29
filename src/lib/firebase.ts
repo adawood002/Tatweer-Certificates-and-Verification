@@ -6,12 +6,12 @@ import type { Certificate } from "@/components/verification";
 
 // Your web app's Firebase configuration
 const firebaseConfig = {
-  apiKey: "AIzaSyB17s-_7xjJcJol_BzGhfSEF9X38zdclto",
-  authDomain: "tatweer-certificates.firebaseapp.com",
-  projectId: "tatweer-certificates",
-  storageBucket: "tatweer-certificates.appspot.com",
-  messagingSenderId: "99719845464",
-  appId: "1:99719845464:web:a9280ed81971e7d5051c2d"
+  apiKey: "AIzaSyCr_PONMMZUuKTGVQtjF9rvC4O2Hwjo_6Q",
+  authDomain: "synapdb-nexus.firebaseapp.com",
+  projectId: "synapdb-nexus",
+  storageBucket: "synapdb-nexus.appspot.com",
+  messagingSenderId: "710536601680",
+  appId: "1:710536601680:web:45ff1928ade1b5d412f155"
 };
 
 
@@ -29,11 +29,14 @@ getStorage(app);
 const CERTIFICATES_COLLECTION = 'certificates';
 
 // Function to add a new certificate
-export const addCertificate = async (certificate: Omit<Certificate, 'pdfUrl'>) => {
+export const addCertificate = async (certificate: Certificate) => {
   try {
+    if (!(certificate.expiryDate instanceof Date)) {
+      throw new Error("expiryDate must be a valid Date object.");
+    }
     const docRef = await addDoc(collection(db, CERTIFICATES_COLLECTION), {
         ...certificate,
-        expiryDate: Timestamp.fromDate(new Date(certificate.expiryDate)), // Store date as Firestore Timestamp
+        expiryDate: Timestamp.fromDate(certificate.expiryDate), // Store date as Firestore Timestamp
     });
     console.log("Document written with ID: ", docRef.id);
     return docRef.id;
@@ -61,6 +64,7 @@ export const getCertificateById = async (certificateId: string): Promise<Certifi
             jobId: data.jobId,
             companyName: data.companyName,
             expiryDate: (data.expiryDate as Timestamp).toDate(), // Convert Timestamp back to Date
+            pdfUrl: data.pdfUrl || ''
         };
     } catch(e) {
         console.error("Error fetching document:", e);
