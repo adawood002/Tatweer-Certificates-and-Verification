@@ -203,16 +203,18 @@ export default function Verification({ certificateId }: VerificationProps) {
                     </div>
                   </div>
                 </div>
-
-                <div className="mt-6 pt-6 border-t">
-                  <h4 className="font-semibold mb-2 flex items-center gap-2"><FileCheck className="w-5 h-5 text-primary" />Stamped Certificate</h4>
-                  <a href={searchResult.pdfUrl} target="_blank" rel="noopener noreferrer" className="w-full">
-                    <Button variant="outline" className="w-full">
-                      <Download className="mr-2 h-4 w-4" />
-                      View or Download Stamped PDF
-                    </Button>
-                  </a>
-                </div>
+                
+                {!isExpired && (
+                  <div className="mt-6 pt-6 border-t">
+                    <h4 className="font-semibold mb-2 flex items-center gap-2"><FileCheck className="w-5 h-5 text-primary" />Stamped Certificate</h4>
+                    <a href={searchResult.pdfUrl} target="_blank" rel="noopener noreferrer" className="w-full">
+                      <Button variant="outline" className="w-full">
+                        <Download className="mr-2 h-4 w-4" />
+                        View or Download Stamped PDF
+                      </Button>
+                    </a>
+                  </div>
+                )}
 
               </div>
             )}
