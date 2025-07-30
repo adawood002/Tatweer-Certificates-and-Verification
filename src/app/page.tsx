@@ -4,8 +4,9 @@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import ApplyQrCode from "@/components/apply-qr";
 import { motion } from "framer-motion";
-import { LogOut, ShieldCheck, User } from "lucide-react";
+import { LogOut, User } from "lucide-react";
 import Link from "next/link";
+import Image from "next/image";
 import { useAuth } from "@/context/AuthContext";
 import { signOut } from "@/lib/firebase";
 import { useRouter } from "next/navigation";
@@ -40,14 +41,14 @@ function Home() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, ease: "easeOut" }}
         >
-          <div className="inline-flex items-center gap-3 mb-4">
-            <ShieldCheck className="w-12 h-12 text-primary" />
+          <div className="inline-flex items-center gap-4 mb-4">
+            <Image src="/logo.png" alt="CertiSeal Logo" width={64} height={64} />
             <h1 className="text-5xl font-bold font-headline text-foreground tracking-tight">
-              Tatweer Certificates
+              CertiSeal
             </h1>
           </div>
           <p className="mt-2 text-lg text-muted-foreground max-w-2xl mx-auto">
-            A robust solution to securely stamp and instantly verify your digital certificates with QR codes.
+            Securely stamp and verify your digital certificates
           </p>
             {user && (
               <div className="mt-4 flex items-center justify-center gap-4">

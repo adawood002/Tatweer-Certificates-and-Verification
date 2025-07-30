@@ -2,8 +2,9 @@
 
 import Verification from "@/components/verification";
 import { motion } from "framer-motion";
-import { ShieldCheck, ArrowLeft } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
+import Image from "next/image";
 import { Button } from "@/components/ui/button";
 
 export default function VerificationPage() {
@@ -16,8 +17,8 @@ export default function VerificationPage() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, ease: "easeOut" }}
         >
-          <div className="inline-flex items-center gap-3 mb-4">
-            <ShieldCheck className="w-12 h-12 text-primary" />
+          <div className="inline-flex items-center gap-4 mb-4">
+             <Image src="/logo.png" alt="CertiSeal Logo" width={64} height={64} />
             <h1 className="text-5xl font-bold font-headline text-foreground tracking-tight">
               Certificate Verification
             </h1>

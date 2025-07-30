@@ -7,6 +7,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { motion } from "framer-motion";
+import Image from "next/image";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -27,7 +28,7 @@ import {
 } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { signIn } from "@/lib/firebase";
-import { ShieldCheck, LogIn, AlertCircle } from "lucide-react";
+import { LogIn, AlertCircle } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 
@@ -83,7 +84,7 @@ export default function LoginPage() {
             <Card className="w-full shadow-lg">
                 <CardHeader className="text-center">
                     <div className="mx-auto bg-primary/10 p-3 rounded-full w-fit mb-3">
-                        <ShieldCheck className="w-10 h-10 text-primary" />
+                         <Image src="/logo.png" alt="CertiSeal Logo" width={40} height={40} />
                     </div>
                     <CardTitle className="font-headline text-2xl">
                         Administrator Login
