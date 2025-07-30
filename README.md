@@ -31,19 +31,22 @@ Follow these steps to get the project running on your local machine.
 
 If you haven't already, create a new project in the [Firebase Console](https://console.firebase.google.com/).
 
--   **Firestore:** In your project, go to **Build > Firestore Database** and click **Create database**. Start in **test mode** for easy local development.
+-   **Authentication**: In your project, go to **Build > Authentication** and click **Get Started**. Enable the **Email/Password** provider and create a user that you can use to log in.
+-   **Firestore:** In your project, go to **Build > Firestore Database** and click **Create database**. Start in **test mode** for easy local development. This will set the security rules to allow read/write access.
 -   **Storage:** Go to **Build > Storage** and click **Get started**. Start in **test mode**. This will set the security rules to allow uploads from your local app.
 
 ### 2. Configure Environment Variables
 
 You need to provide your Firebase project's credentials to the application.
 
-1.  In your project's root directory, create a new file named `.env`
-2.  Copy the content of `.env.example` into your new `.env` file.
-3.  Go to your Firebase project's **Project Settings** (click the gear icon ⚙️) and find your **Web App** configuration.
-4.  Copy the values and paste them into your `.env` file. It should look like this:
+1.  In your project's root directory, you should have a file named `.env`. If not, create one.
+2.  Go to your Firebase project's **Project Settings** (click the gear icon ⚙️) and find your **Web App** configuration.
+3.  Copy the values and paste them into your `.env` file. It should look like this:
 
 ```bash
+# Your live website URL (e.g., https://my-app.com)
+NEXT_PUBLIC_APP_URL=http://localhost:9002
+
 # Firebase Web App Configuration
 NEXT_PUBLIC_FIREBASE_API_KEY=AIzaSy...
 NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=your-project-id.firebaseapp.com

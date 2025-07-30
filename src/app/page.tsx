@@ -42,9 +42,9 @@ function Home() {
           transition={{ duration: 0.5, ease: "easeOut" }}
         >
           <div className="inline-flex items-center gap-4 mb-4">
-            <Image src="/logo.png" alt="CertiSeal Logo" width={64} height={64} />
+            <Image src="/logo.png" alt="Tatweer Certificates Logo" width={64} height={64} />
             <h1 className="text-5xl font-bold font-headline text-foreground tracking-tight">
-              CertiSeal
+              Tatweer Certificates
             </h1>
           </div>
           <p className="mt-2 text-lg text-muted-foreground max-w-2xl mx-auto">

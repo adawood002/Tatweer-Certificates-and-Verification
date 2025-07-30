@@ -4,7 +4,7 @@ import { Toaster } from "@/components/ui/toaster"
 import { AuthProvider } from '@/context/AuthContext';
 
 export const metadata: Metadata = {
-  title: 'CertiSeal',
+  title: 'Tatweer Certificates',
   description: 'Securely stamp and verify your digital certificates.',
 };
 

@@ -84,7 +84,7 @@ export default function LoginPage() {
             <Card className="w-full shadow-lg">
                 <CardHeader className="text-center">
                     <div className="mx-auto bg-primary/10 p-3 rounded-full w-fit mb-3">
-                         <Image src="/logo.png" alt="CertiSeal Logo" width={40} height={40} />
+                         <Image src="/logo.png" alt="Tatweer Certificates Logo" width={40} height={40} />
                     </div>
                     <CardTitle className="font-headline text-2xl">
                         Administrator Login
