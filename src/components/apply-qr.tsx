@@ -53,6 +53,7 @@ import { applyQrToPdf } from "@/ai/flows/apply-qr-to-pdf";
 import { uploadCertificate, addCertificate } from "@/lib/firebase";
 import { Slider } from "@/components/ui/slider";
 import { Label } from "@/components/ui/label";
+import withAuth from "@/components/withAuth";
 
 const formSchema = z.object({
   certificateId: z.string().min(1, "Certificate ID is required."),
@@ -65,7 +66,7 @@ type FormValues = z.infer<typeof formSchema>;
 type Step = 'apply' | 'save' | 'download' | 'idle';
 
 
-export default function ApplyQrCode() {
+function ApplyQrCode() {
   const { toast } = useToast();
   const [certificateFile, setCertificateFile] = useState<File | null>(null);
   const [pdfBase64, setPdfBase64] = useState<string | null>(null);
@@ -625,3 +626,5 @@ export default function ApplyQrCode() {
     </Card>
   );
 }
+
+export default withAuth(ApplyQrCode);

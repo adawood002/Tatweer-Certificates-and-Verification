@@ -1,7 +1,27 @@
 // Import the functions you need from the SDKs you need
 import { initializeApp, getApps, FirebaseOptions } from "firebase/app";
-import { getFirestore, collection, addDoc, getDocs, query, where, Timestamp } from "firebase/firestore";
-import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { 
+    getFirestore, 
+    collection, 
+    addDoc, 
+    getDocs, 
+    query, 
+    where, 
+    Timestamp 
+} from "firebase/firestore";
+import { 
+    getStorage, 
+    ref, 
+    uploadBytes, 
+    getDownloadURL 
+} from "firebase/storage";
+import { 
+    getAuth, 
+    signInWithEmailAndPassword, 
+    onAuthStateChanged,
+    signOut as firebaseSignOut,
+    type User
+} from "firebase/auth";
 import type { Certificate } from "@/components/verification";
 import 'dotenv/config'
 
@@ -26,6 +46,7 @@ if (!getApps().length) {
 
 const db = getFirestore(app);
 const storage = getStorage(app);
+const auth = getAuth(app);
 
 const CERTIFICATES_COLLECTION = 'certificates';
 
@@ -100,3 +121,19 @@ export const getCertificateById = async (certificateId: string): Promise<Certifi
         throw new Error(`Could not fetch certificate data. Firebase error: ${e.message}`);
     }
 }
+
+
+// Auth functions
+export const signIn = (email: string, password: string) => {
+    return signInWithEmailAndPassword(auth, email, password);
+}
+
+export const signOut = () => {
+    return firebaseSignOut(auth);
+}
+
+export const onAuthStateChangedHelper = (callback: (user: User | null) => void) => {
+    return onAuthStateChanged(auth, callback);
+}
+
+export { auth };
